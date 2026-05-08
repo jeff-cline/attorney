@@ -1,36 +1,77 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Attorney.plus
 
-## Getting Started
+A two-party arbitration platform. Slice 1 ships the **two-party consent gate**:
+landing page, asynchronous dual-party signup, ToS acceptance, mutual arbitration
+consent, tamper-evident audit chain, and a god admin panel.
 
-First, run the development server:
+> Prelaunch. Not a law firm. Not yet accepting payments. Terms of Service must be
+> reviewed by counsel before any production launch.
+
+## Stack
+
+- **Next.js 16** (App Router, TypeScript) — `next dev`, server actions
+- **Postgres** (Neon, recommended) via **Drizzle ORM**
+- **Auth.js v5** — email + password (JWT sessions)
+- **Resend** — transactional email (optional in dev)
+- **Tailwind 4** — styling
+- **Vitest** — unit tests for hash chain + invite codes
+
+## Local development
 
 ```bash
+# 1. install
+npm install
+
+# 2. env
+cp .env.example .env.local
+#   Fill in DATABASE_URL (Neon connection string), AUTH_SECRET (openssl rand -hex 32),
+#   ADMIN_BOOTSTRAP_PASSWORD, etc.
+
+# 3. database
+npm run db:migrate
+npm run db:seed   # bootstraps admin user + ToS v1
+
+# 4. run
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open <http://localhost:3000>.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Tests
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm test
+```
 
-## Learn More
+Covers audit-chain hash determinism + sensitivity, invite-code format, alphabet,
+and uniqueness.
 
-To learn more about Next.js, take a look at the following resources:
+## Production build
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm run build
+npm start
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Deploy (Vercel)
 
-## Deploy on Vercel
+1. Push this repo to GitHub.
+2. Import into Vercel; framework auto-detected.
+3. Set env vars from `.env.example` (real values).
+4. Add a Postgres database (Neon/Vercel Postgres) and copy `DATABASE_URL` into Vercel env.
+5. Run migrations once against prod DB:
+   `DATABASE_URL=... npx drizzle-kit migrate`.
+   Then `DATABASE_URL=... npm run db:seed` to bootstrap the admin.
+6. Add custom domain `attorney.plus`.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Docs
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Spec: [`docs/superpowers/specs/2026-05-08-slice-1-two-party-consent-gate.md`](./docs/superpowers/specs/2026-05-08-slice-1-two-party-consent-gate.md)
+- Plan: [`docs/superpowers/plans/2026-05-08-slice-1-two-party-consent-gate.md`](./docs/superpowers/plans/2026-05-08-slice-1-two-party-consent-gate.md)
+
+## Layout chrome
+
+- Sticky prelaunch banner (top, every page)
+- Header with Start / Join / Log in
+- Footer with Terms / Privacy / Contact / **Log in**
+- Fixed orange `444` link (bottom-right, every page) → <https://jeff-cline.com>
