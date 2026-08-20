@@ -1,12 +1,9 @@
 import Link from "next/link";
-import { auth } from "@/lib/auth";
+import { HeaderAccount } from "@/components/header-account";
 
-export async function SiteHeader() {
-  const session = await auth();
-  const authed = !!session?.user;
-  const role = (session?.user as { role?: string } | undefined)?.role;
-  const isAdmin = role === "admin";
-  const isAttorney = role === "attorney";
+// Plain (non-async) server component — no session read here, so content pages
+// prerender as static HTML. The session-aware link lives in <HeaderAccount/> (client).
+export function SiteHeader() {
   return (
     <header
       className="sticky top-0 z-40 hairline"
@@ -36,20 +33,7 @@ export async function SiteHeader() {
           <Link href="/join" className="hidden rounded-full px-3 py-2 font-medium hover:text-[var(--brand)] sm:inline">
             I have a code
           </Link>
-          {isAdmin && (
-            <Link href="/admin" className="hidden rounded-full px-3 py-2 font-semibold sm:inline" style={{ color: "var(--seal)" }}>
-              God console
-            </Link>
-          )}
-          {authed ? (
-            <Link href={isAttorney ? "/portal" : "/dashboard"} className="hidden rounded-full px-3 py-2 font-medium hover:text-[var(--brand)] sm:inline">
-              {isAttorney ? "My portal" : "Dashboard"}
-            </Link>
-          ) : (
-            <Link href="/auth/login" className="hidden rounded-full px-3 py-2 font-medium hover:text-[var(--brand)] sm:inline">
-              Log in
-            </Link>
-          )}
+          <HeaderAccount />
           <Link href="/start" className="btn btn-brand" style={{ padding: "10px 18px", fontSize: "14.5px" }}>
             Start a case
           </Link>
