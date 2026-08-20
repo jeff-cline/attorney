@@ -10,9 +10,11 @@ import {
   primaryKey,
   integer,
   bigserial,
+  boolean,
+  jsonb,
 } from "drizzle-orm/pg-core";
 
-export const userRole = pgEnum("user_role", ["user", "admin"]);
+export const userRole = pgEnum("user_role", ["user", "admin", "attorney"]);
 export const caseStatus = pgEnum("case_status", [
   // legacy values kept so existing rows remain valid
   "pending_join",
@@ -234,4 +236,17 @@ export const appSettings = pgTable("app_settings", {
   key: varchar("key", { length: 80 }).primaryKey(),
   value: text("value").notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Referral-network attorney profile (role = 'attorney'). specialties = category slugs.
+export const attorneyProfiles = pgTable("attorney_profiles", {
+  userId: uuid("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  firmName: text("firm_name"),
+  barState: varchar("bar_state", { length: 2 }),
+  phone: varchar("phone", { length: 32 }),
+  specialties: jsonb("specialties").$type<string[]>().notNull().default([]),
+  notifyEmail: boolean("notify_email").notNull().default(true),
+  postArbOptIn: boolean("post_arb_opt_in").notNull().default(true),
+  approved: boolean("approved").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });

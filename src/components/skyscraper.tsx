@@ -32,7 +32,7 @@ export function Skyscraper({ category, variant }: { category: ReferralCategory; 
                 Join the Attorney.plus network, pick the categories you want, and receive matched {g?.name.toLowerCase()} referrals — plus higher-intent cases from the arbitration funnel.
               </p>
               <div style={{ marginTop: "auto" }}>
-                <Link href="/contact" className="btn btn-seal btn-block">Join as a {v.word} →</Link>
+                <Link href="/for-attorneys" className="btn btn-seal btn-block">Join as a {v.word} →</Link>
               </div>
             </>
           ) : (

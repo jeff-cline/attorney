@@ -43,7 +43,7 @@ export function SiteFooter() {
             { label: "Contact", href: "/contact" },
           ]} />
           <FooterCol title="Discover" links={[
-            { label: "Attorneys & lawyers — join", href: "/contact" },
+            { label: "Attorneys & lawyers — join", href: "/for-attorneys" },
             { label: "Advertise with us", href: "/contact" },
             { label: "Sitemap (XML)", href: "/sitemap.xml", raw: true },
             { label: "AI & answer engines (llms.txt)", href: "/llms.txt", raw: true },

@@ -4,7 +4,9 @@ import { auth } from "@/lib/auth";
 export async function SiteHeader() {
   const session = await auth();
   const authed = !!session?.user;
-  const isAdmin = (session?.user as { role?: string } | undefined)?.role === "admin";
+  const role = (session?.user as { role?: string } | undefined)?.role;
+  const isAdmin = role === "admin";
+  const isAttorney = role === "attorney";
   return (
     <header
       className="sticky top-0 z-40 hairline"
@@ -40,8 +42,8 @@ export async function SiteHeader() {
             </Link>
           )}
           {authed ? (
-            <Link href="/dashboard" className="hidden rounded-full px-3 py-2 font-medium hover:text-[var(--brand)] sm:inline">
-              Dashboard
+            <Link href={isAttorney ? "/portal" : "/dashboard"} className="hidden rounded-full px-3 py-2 font-medium hover:text-[var(--brand)] sm:inline">
+              {isAttorney ? "My portal" : "Dashboard"}
             </Link>
           ) : (
             <Link href="/auth/login" className="hidden rounded-full px-3 py-2 font-medium hover:text-[var(--brand)] sm:inline">
