@@ -1,19 +1,17 @@
 import { signIn } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
-export default function LoginPage() {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+  const sp = await searchParams;
   async function loginAction(fd: FormData) {
     "use server";
     const email = String(fd.get("email") ?? "").toLowerCase();
     const password = String(fd.get("password") ?? "");
     try {
-      await signIn("credentials", {
-        email,
-        password,
-        redirect: false,
-      });
+      await signIn("credentials", { email, password, redirect: false });
     } catch {
       redirect("/auth/login?error=1");
     }
@@ -21,30 +19,21 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="mx-auto max-w-sm space-y-6 p-8">
-      <h1 className="text-2xl font-semibold">Log in</h1>
-      <form action={loginAction} className="space-y-3">
-        <input
-          name="email"
-          type="email"
-          required
-          placeholder="email"
-          className="w-full rounded border border-black/20 px-3 py-2"
-        />
-        <input
-          name="password"
-          type="password"
-          required
-          placeholder="password"
-          className="w-full rounded border border-black/20 px-3 py-2"
-        />
-        <button className="w-full rounded bg-black py-2 text-white">
-          Log in
-        </button>
-      </form>
-      <p className="text-xs text-gray-500">
-        Don&apos;t have an account? <a href="/start" className="underline">Start a case</a> or{" "}
-        <a href="/join" className="underline">join one</a>.
+    <main className="container" style={{ maxWidth: 440, padding: "56px 24px 80px" }}>
+      <div className="mb-7 text-center">
+        <div className="eyebrow">Welcome back</div>
+        <h1 className="mt-2 text-[clamp(28px,4vw,38px)]">Log in</h1>
+      </div>
+      {sp.error && <div className="form-msg err mb-4">Incorrect email or password.</div>}
+      <div className="panel">
+        <form action={loginAction}>
+          <div className="field"><label>Email</label><input name="email" type="email" required placeholder="you@email.com" /></div>
+          <div className="field"><label>Password</label><input name="password" type="password" required placeholder="Your password" /></div>
+          <button className="btn btn-brand btn-block btn-lg">Log in</button>
+        </form>
+      </div>
+      <p className="muted mt-5 text-center text-[13.5px]">
+        No account? <Link href="/start" className="underline" style={{ color: "var(--brand)" }}>Start a case</Link> or <Link href="/join" className="underline" style={{ color: "var(--brand)" }}>join one</Link>.
       </p>
     </main>
   );

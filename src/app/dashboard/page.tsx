@@ -4,6 +4,7 @@ import { or, eq, desc } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { cases } from "@/db/schema";
+import { StatusChip } from "@/components/status-chip";
 
 export const dynamic = "force-dynamic";
 
@@ -19,42 +20,44 @@ export default async function Dashboard() {
     .orderBy(desc(cases.updatedAt));
 
   return (
-    <main className="mx-auto max-w-3xl space-y-6 p-8">
-      <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Your cases</h1>
-        <Link
-          href="/start"
-          className="rounded bg-black px-4 py-2 text-sm text-white"
-        >
-          + New case
-        </Link>
+    <main className="container" style={{ maxWidth: 900, padding: "44px 24px 80px" }}>
+      <header className="mb-8 flex items-center justify-between gap-4">
+        <div>
+          <div className="eyebrow">Your dashboard</div>
+          <h1 className="mt-2 text-[clamp(26px,3.4vw,36px)]">Your cases</h1>
+        </div>
+        <Link href="/start" className="btn btn-brand">+ New case</Link>
       </header>
 
-      <ul className="divide-y divide-black/10 rounded border border-black/10">
-        {myCases.map((c) => (
-          <li key={c.id} className="flex items-center justify-between p-4">
-            <div>
-              <div className="font-mono text-sm">{c.inviteCode}</div>
-              <div className="text-xs text-gray-600">{c.status}</div>
-            </div>
-            <Link
-              href={`/dashboard/case/${c.id}`}
-              className="text-sm underline"
-            >
-              Open
+      {myCases.length === 0 ? (
+        <div className="panel text-center">
+          <h3 className="text-[22px]">No cases yet</h3>
+          <p className="muted mx-auto mt-2 max-w-[40ch]">Open a case to resolve a dispute, or join one with a code the other party sent you.</p>
+          <div className="mt-5 flex justify-center gap-3">
+            <Link href="/start" className="btn btn-brand">Start a case</Link>
+            <Link href="/join" className="btn btn-outline">I have a code</Link>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {myCases.map((c) => (
+            <Link key={c.id} href={`/dashboard/case/${c.id}`} className="card card-raised flex items-center justify-between gap-4 transition hover:-translate-y-0.5">
+              <div>
+                <div className="text-[17px] font-semibold" style={{ fontFamily: "var(--font-fraunces)" }}>
+                  {c.subject?.trim() || "Dispute"}
+                </div>
+                <div className="muted mt-1 text-[13px]">
+                  Case {c.inviteCode} · {c.initiatorId === uid ? "you started this" : "you joined this"}
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <StatusChip status={c.status} />
+                <span className="text-[15px]" style={{ color: "var(--brand)" }}>Open →</span>
+              </div>
             </Link>
-          </li>
-        ))}
-        {myCases.length === 0 && (
-          <li className="p-4 text-sm text-gray-600">
-            No cases yet.{" "}
-            <Link className="underline" href="/start">
-              Start one
-            </Link>
-            .
-          </li>
-        )}
-      </ul>
+          ))}
+        </div>
+      )}
     </main>
   );
 }

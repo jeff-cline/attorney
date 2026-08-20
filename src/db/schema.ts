@@ -14,14 +14,26 @@ import {
 
 export const userRole = pgEnum("user_role", ["user", "admin"]);
 export const caseStatus = pgEnum("case_status", [
+  // legacy values kept so existing rows remain valid
   "pending_join",
   "pending_agreements",
   "ready_for_intake",
   "voided",
+  // arbitration funnel
+  "awaiting_initiator_payment", // plaintiff started — must pay their share to unlock the code
+  "awaiting_joiner_payment",    // respondent joined — must pay their half
+  "pending_disputes",           // both agreed to terms — each submits their account
+  "summary_review",             // neutral summary generated — both approve
+  "ai_decision",                // AI-assisted proposed resolution — both accept or one disagrees
+  "resolved",                   // both accepted a decision (AI or arbitrator)
+  "arbitration",                // escalated — awaiting professional arbitrator's ruling
+  "arbitration_ruling",         // arbitrator ruled — both accept or one disagrees
+  "litigation",                 // escalated to attorneys — independent counsel per side
 ]);
 export const agreementType = pgEnum("agreement_type", [
   "platform_tos",
   "arbitration_consent",
+  "decision_accepted", // binding acceptance of an AI or arbitrator decision
 ]);
 
 export const users = pgTable("users", {
@@ -82,17 +94,33 @@ export const cases = pgTable(
     joinerId: uuid("joiner_id").references(() => users.id, {
       onDelete: "restrict",
     }),
-    status: caseStatus("status").notNull().default("pending_join"),
-    initiatorAgreedAt: timestamp("initiator_agreed_at", {
-      withTimezone: true,
-    }),
+    status: caseStatus("status").notNull().default("awaiting_initiator_payment"),
+    subject: text("subject"), // short description of the dispute
+    initiatorAgreedAt: timestamp("initiator_agreed_at", { withTimezone: true }),
     joinerAgreedAt: timestamp("joiner_agreed_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
+    // payment gates (stubbed free until Stripe; timestamp = paid/confirmed)
+    initiatorPaidAt: timestamp("initiator_paid_at", { withTimezone: true }),
+    joinerPaidAt: timestamp("joiner_paid_at", { withTimezone: true }),
+    // neutral summary of both positions
+    neutralSummary: text("neutral_summary"),
+    initiatorSummaryOkAt: timestamp("initiator_summary_ok_at", { withTimezone: true }),
+    joinerSummaryOkAt: timestamp("joiner_summary_ok_at", { withTimezone: true }),
+    // AI-assisted proposed resolution
+    aiDecision: text("ai_decision"),
+    aiDecisionAt: timestamp("ai_decision_at", { withTimezone: true }),
+    initiatorDecision: varchar("initiator_decision", { length: 10 }), // 'agree' | 'disagree'
+    joinerDecision: varchar("joiner_decision", { length: 10 }),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    // escalation → professional arbitrator
+    escalatedAt: timestamp("escalated_at", { withTimezone: true }),
+    arbitratorRuling: text("arbitrator_ruling"),
+    arbitratorRuledAt: timestamp("arbitrator_ruled_at", { withTimezone: true }),
+    initiatorArbOkAt: timestamp("initiator_arb_ok_at", { withTimezone: true }),
+    joinerArbOkAt: timestamp("joiner_arb_ok_at", { withTimezone: true }),
+    // escalation → litigation
+    litigationAt: timestamp("litigation_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [
     uniqueIndex("cases_invite_code_uq").on(t.inviteCode),
@@ -126,6 +154,27 @@ export const agreements = pgTable(
     uniqueIndex("agreements_seq_uq").on(t.seq),
     index("agreements_case_idx").on(t.caseId),
     index("agreements_user_idx").on(t.userId),
+  ],
+);
+
+export const disputeStatements = pgTable(
+  "dispute_statements",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    caseId: uuid("case_id")
+      .notNull()
+      .references(() => cases.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    statement: text("statement").notNull(),
+    submittedAt: timestamp("submitted_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [
+    uniqueIndex("dispute_case_user_uq").on(t.caseId, t.userId),
+    index("dispute_case_idx").on(t.caseId),
   ],
 );
 

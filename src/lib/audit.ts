@@ -2,7 +2,7 @@ import { sha256 } from "./hash";
 
 export const GENESIS_HASH = sha256("attorney.plus:genesis");
 
-export type AgreementKind = "platform_tos" | "arbitration_consent";
+export type AgreementKind = "platform_tos" | "arbitration_consent" | "decision_accepted";
 
 export type ChainRow = {
   id: string;
