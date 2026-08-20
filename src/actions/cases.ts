@@ -61,14 +61,14 @@ async function getCase(caseId: string): Promise<CaseRow> {
 }
 
 /* ── 1. Start ─────────────────────────────────────────────────────── */
-export async function createCase(subject?: string) {
+export async function createCase(subject?: string, category?: string) {
   const userId = await currentUserId();
   for (let i = 0; i < 6; i++) {
     const code = generateInviteCode();
     try {
       const [c] = await db
         .insert(cases)
-        .values({ inviteCode: code, initiatorId: userId, subject: subject ?? null, status: "awaiting_initiator_payment" })
+        .values({ inviteCode: code, initiatorId: userId, subject: subject ?? null, category: category ?? null, status: "awaiting_initiator_payment" })
         .returning();
       return c;
     } catch (e: unknown) {

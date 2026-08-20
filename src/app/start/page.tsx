@@ -3,24 +3,30 @@ import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { signupAndAcceptTos } from "@/actions/signup";
 import { createCase } from "@/actions/cases";
+import { getCategory } from "@/content/referral-categories";
 
 export const dynamic = "force-dynamic";
 
-export default async function StartPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+export default async function StartPage({ searchParams }: { searchParams: Promise<{ error?: string; category?: string; intent?: string }> }) {
   const sp = await searchParams;
   const session = await auth();
   const loggedIn = Boolean(session?.user);
+  const cat = sp.category ? getCategory(sp.category) : undefined;
+  const catQs = cat ? `?category=${encodeURIComponent(cat.slug)}${sp.intent ? `&intent=${encodeURIComponent(sp.intent)}` : ""}` : "";
 
   async function signupAction(fd: FormData) {
     "use server";
     const r = await signupAndAcceptTos(fd);
-    if (!r.ok) redirect(`/start?error=${encodeURIComponent(r.error)}`);
-    redirect("/start");
+    const carry = String(fd.get("category") ?? "");
+    const q = carry ? `?category=${encodeURIComponent(carry)}` : "";
+    if (!r.ok) redirect(`/start${q}${q ? "&" : "?"}error=${encodeURIComponent(r.error)}`);
+    redirect(`/start${q}`);
   }
   async function startAction(fd: FormData) {
     "use server";
     const subject = String(fd.get("subject") ?? "").trim().slice(0, 160);
-    const c = await createCase(subject || undefined);
+    const category = String(fd.get("category") ?? "").trim().slice(0, 120) || undefined;
+    const c = await createCase(subject || undefined, category);
     redirect(`/dashboard/case/${c.id}`);
   }
 
@@ -37,13 +43,19 @@ export default async function StartPage({ searchParams }: { searchParams: Promis
       </div>
 
       {sp.error && <div className="form-msg err mb-4">{decodeURIComponent(sp.error)}</div>}
+      {cat && (
+        <div className="chip chip-seal mb-4" style={{ fontSize: 13.5 }}>
+          {sp.intent === "attorney" ? "Attorney match" : "Category"}: {cat.name}
+        </div>
+      )}
 
       <div className="panel">
         {loggedIn ? (
           <form action={startAction}>
+            {cat && <input type="hidden" name="category" value={cat.slug} />}
             <div className="field">
               <label>What&apos;s the dispute about?</label>
-              <input name="subject" required maxLength={160} placeholder="e.g. Security deposit not returned" />
+              <input name="subject" required maxLength={160} placeholder="e.g. Security deposit not returned" defaultValue={cat ? cat.name : undefined} />
               <span className="hint">A short title — you&apos;ll give the full account after both parties join.</span>
             </div>
             <button className="btn btn-brand btn-block btn-lg">Continue →</button>
@@ -51,6 +63,7 @@ export default async function StartPage({ searchParams }: { searchParams: Promis
         ) : (
           <>
             <form action={signupAction}>
+              {cat && <input type="hidden" name="category" value={cat.slug} />}
               <div className="field"><label>Your name</label><input name="displayName" required placeholder="Full name" /></div>
               <div className="field"><label>Email</label><input name="email" type="email" required placeholder="you@email.com" /></div>
               <div className="field"><label>Password</label><input name="password" type="password" required minLength={12} placeholder="At least 12 characters" /></div>

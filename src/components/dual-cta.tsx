@@ -1,23 +1,35 @@
 import Link from "next/link";
 
 /**
- * The two calls to action every content page carries:
- *  1) Find an attorney best suited to the visitor's need
- *  2) Try the Quick-Resolve arbitration process first
- * `intent` query params let us branch the /start intake later + feed tracking.
+ * The consumer's two ways forward. `category` is the referral-category slug the
+ * consumer is looking at — it rides along to /start so the case is tagged with
+ * the category that attorneys bid on (connect-the-dots). NEVER renders a fee or %.
+ * When `arbitrable` is false (criminal, immigration, etc.) we lead with the
+ * attorney match and do not offer arbitration.
  */
-export function DualCTA({ area }: { area?: string }) {
-  const q = area ? `?area=${encodeURIComponent(area)}` : "";
+export function DualCTA({ category, arbitrable = true }: { category?: string; arbitrable?: boolean }) {
+  const base = category ? `/start?category=${encodeURIComponent(category)}` : "/start";
+  const attorneyHref = category ? `${base}&intent=attorney` : `/start?intent=attorney`;
   return (
     <div className="card" style={{ background: "var(--ink)", color: "#fff", borderColor: "transparent" }}>
-      <div className="eyebrow" style={{ color: "#e0a94b" }}>Two ways forward</div>
-      <h2 style={{ color: "#fff", marginTop: 8, fontSize: 24 }}>Resolve it fast, or get the right attorney.</h2>
+      <div className="eyebrow" style={{ color: "#e0a94b" }}>{arbitrable ? "Two ways forward" : "Get matched"}</div>
+      <h2 style={{ color: "#fff", marginTop: 8, fontSize: 24 }}>
+        {arbitrable ? "Resolve it fast, or get the right attorney." : "Get matched with the right attorney."}
+      </h2>
       <p style={{ color: "rgba(255,255,255,.82)", marginTop: 8, fontSize: 15.5, maxWidth: 620 }}>
-        Many disputes settle in days without a lawyer. Try Quick-Resolve arbitration first — and if it isn&apos;t the right fit, we&apos;ll match you with an attorney best suited to your need.
+        {arbitrable
+          ? "Many disputes settle in days without a lawyer. Try Quick-Resolve arbitration first — and if it isn't the right fit, we'll match you with an attorney best suited to your need."
+          : "We'll connect you with an attorney who handles your exact matter in your area. You approve the match before anything moves forward."}
       </p>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 20 }}>
-        <Link href={`/start${q}`} className="btn btn-seal btn-lg">Try Quick-Resolve arbitration first</Link>
-        <Link href={`/start${q}${q ? "&" : "?"}intent=attorney`} className="btn btn-ghost-light btn-lg">Find an attorney for your need</Link>
+        {arbitrable ? (
+          <>
+            <Link href={base} className="btn btn-seal btn-lg">Try Quick-Resolve arbitration first</Link>
+            <Link href={attorneyHref} className="btn btn-ghost-light btn-lg">Find an attorney for your need</Link>
+          </>
+        ) : (
+          <Link href={attorneyHref} className="btn btn-seal btn-lg">Find an attorney best suited to your need</Link>
+        )}
       </div>
     </div>
   );

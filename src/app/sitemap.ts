@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { PRACTICE_AREAS } from "@/content/practice-areas";
+import { CATEGORIES } from "@/content/referral-categories";
 
 const BASE = "https://attorney.plus";
 
@@ -9,10 +9,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
     changeFrequency: "weekly" as const,
     priority: p === "" ? 1 : 0.7,
   }));
-  const areaPages = PRACTICE_AREAS.map((a) => ({
-    url: `${BASE}/attorneys/${a.slug}`,
+  const categoryPages = CATEGORIES.map((c) => ({
+    url: `${BASE}/attorneys/${c.slug}`,
     changeFrequency: "monthly" as const,
     priority: 0.8,
   }));
-  return [...staticPages, ...areaPages];
+  return [...staticPages, ...categoryPages];
 }

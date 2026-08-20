@@ -96,6 +96,7 @@ export const cases = pgTable(
     }),
     status: caseStatus("status").notNull().default("awaiting_initiator_payment"),
     subject: text("subject"), // short description of the dispute
+    category: varchar("category", { length: 120 }), // referral-category slug the consumer picked (connects to attorney bidding)
     initiatorAgreedAt: timestamp("initiator_agreed_at", { withTimezone: true }),
     joinerAgreedAt: timestamp("joiner_agreed_at", { withTimezone: true }),
     // payment gates (stubbed free until Stripe; timestamp = paid/confirmed)
@@ -227,3 +228,10 @@ export const verificationTokens = pgTable(
   },
   (t) => [primaryKey({ columns: [t.identifier, t.token] })],
 );
+
+// Simple key/value store for God-controlled toggles (e.g. attorney_show_percentage).
+export const appSettings = pgTable("app_settings", {
+  key: varchar("key", { length: 80 }).primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
