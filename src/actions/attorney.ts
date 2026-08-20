@@ -3,6 +3,8 @@
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
+import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { users, tosAcceptances, attorneyProfiles } from "@/db/schema";
 import { currentTos } from "@/lib/tos";
@@ -33,13 +35,12 @@ export async function registerAttorney(
     return { ok: false, error: (e as z.ZodError).issues?.[0]?.message ?? "Please complete every field, including the Terms checkbox." };
   }
 
-  // Validate the picked specialties against the real category slugs.
+  // Free account: specialties are optional here (picked in the portal after signup).
   let specialties: string[] = [];
   try {
     const raw = JSON.parse(String(fd.get("specialties") ?? "[]"));
     if (Array.isArray(raw)) specialties = raw.filter((s) => typeof s === "string" && getCategory(s)).slice(0, 100);
   } catch { /* none */ }
-  if (specialties.length === 0) return { ok: false, error: "Pick at least one case type you want referrals for." };
 
   const existing = await db.query.users.findFirst({ where: eq(users.email, parsed.email) });
   if (existing) return { ok: false, error: "That email already has an account. Log in instead." };
@@ -79,5 +80,36 @@ export async function registerAttorney(
   });
 
   await signIn("credentials", { email: parsed.email, password: parsed.password, redirect: false });
+  return { ok: true };
+}
+
+/* ── portal: update the attorney's chosen case types ──────────────── */
+export async function updateSpecialties(fd: FormData): Promise<{ ok: boolean }> {
+  const s = await auth();
+  const uid = (s?.user as { id?: string; role?: string } | undefined)?.id;
+  const role = (s?.user as { role?: string } | undefined)?.role;
+  if (!uid || (role !== "attorney" && role !== "admin")) return { ok: false };
+  let specialties: string[] = [];
+  try {
+    const raw = JSON.parse(String(fd.get("specialties") ?? "[]"));
+    if (Array.isArray(raw)) specialties = raw.filter((x) => typeof x === "string" && getCategory(x)).slice(0, 100);
+  } catch { /* none */ }
+  await db.update(attorneyProfiles).set({ specialties }).where(eq(attorneyProfiles.userId, uid));
+  revalidatePath("/portal");
+  return { ok: true };
+}
+
+/* ── portal: record a Premium Partner exclusivity choice ──────────── */
+export async function requestExclusivity(fd: FormData): Promise<{ ok: boolean; error?: string }> {
+  const s = await auth();
+  const uid = (s?.user as { id?: string } | undefined)?.id;
+  const role = (s?.user as { role?: string } | undefined)?.role;
+  if (!uid || (role !== "attorney" && role !== "admin")) return { ok: false, error: "Not signed in." };
+  const category = String(fd.get("exclusiveCategory") ?? "").trim();
+  const state = String(fd.get("exclusiveState") ?? "").trim().toUpperCase().slice(0, 2);
+  if (!getCategory(category)) return { ok: false, error: "Pick a valid category." };
+  if (state.length !== 2) return { ok: false, error: "Enter your 2-letter state." };
+  await db.update(attorneyProfiles).set({ exclusiveCategory: category, exclusiveState: state }).where(eq(attorneyProfiles.userId, uid));
+  revalidatePath("/portal");
   return { ok: true };
 }

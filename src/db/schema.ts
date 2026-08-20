@@ -248,5 +248,10 @@ export const attorneyProfiles = pgTable("attorney_profiles", {
   notifyEmail: boolean("notify_email").notNull().default(true),
   postArbOptIn: boolean("post_arb_opt_in").notNull().default(true),
   approved: boolean("approved").notNull().default(false),
+  // Premium Partner: $/mo for exclusive rights to one niche (category) in one state.
+  tier: varchar("tier", { length: 16 }).notNull().default("free"), // 'free' | 'premium'
+  exclusiveCategory: varchar("exclusive_category", { length: 120 }),
+  exclusiveState: varchar("exclusive_state", { length: 2 }),
+  premiumSince: timestamp("premium_since", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });

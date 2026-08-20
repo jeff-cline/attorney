@@ -7,7 +7,13 @@ import { appSettings } from "@/db/schema";
 export const SETTING_KEYS = {
   attorneyShowPercentage: "attorney_show_percentage",
   arbitrationReferralMultiplier: "arbitration_referral_multiplier",
+  stripePublishableKey: "stripe_publishable_key",
+  stripeSecretKey: "stripe_secret_key",
+  stripePremiumPriceId: "stripe_premium_price_id",
 } as const;
+
+/** Monthly price of the Premium Partner tier (exclusive niche per state). */
+export const PREMIUM_PRICE_MONTHLY = 3000;
 
 /** Default multiplier (% of base) for referrals that already went through
  *  arbitration — higher-intent leads. 200 = 2× base. God-editable. */
@@ -37,4 +43,20 @@ export async function arbitrationMultiplier(): Promise<number> {
   const raw = await getSetting(SETTING_KEYS.arbitrationReferralMultiplier);
   const n = raw ? parseInt(raw, 10) : NaN;
   return Number.isFinite(n) && n >= 100 && n <= 1000 ? n : DEFAULT_ARB_MULTIPLIER;
+}
+
+export type StripeConfig = { publishable: string | null; secret: string | null; priceId: string | null };
+export async function getStripeConfig(): Promise<StripeConfig> {
+  const [publishable, secret, priceId] = await Promise.all([
+    getSetting(SETTING_KEYS.stripePublishableKey),
+    getSetting(SETTING_KEYS.stripeSecretKey),
+    getSetting(SETTING_KEYS.stripePremiumPriceId),
+  ]);
+  return { publishable, secret, priceId };
+}
+
+/** Payments are live once a secret key + premium price ID are present. */
+export async function paymentsConfigured(): Promise<boolean> {
+  const c = await getStripeConfig();
+  return Boolean(c.secret && c.priceId);
 }
