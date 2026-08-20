@@ -39,7 +39,7 @@ export const landing = {
   },
   faq: [
     { q: "Is Attorney.plus a law firm?", a: "No. Attorney.plus is not a law firm and does not provide legal advice. It's a neutral platform that helps two parties reach agreement quickly, with professional arbitration and attorney referrals available if needed." },
-    { q: "What does it cost?", a: "You and the other party each pay your own share to begin. If the case escalates to a professional arbitrator, the arbitration fee is capped at $1,500 total. Fees tied to connecting with a lawyer are marketing fees. (Payments are not processed during prelaunch.)" },
+    { q: "What does it cost?", a: "You and the other party each pay your own share to begin. If the case escalates to a professional arbitrator, the arbitration fee is capped at $1,500 total. Any fees tied to connecting with a lawyer are marketing fees." },
     { q: "What if the other party won't participate?", a: "Nothing moves forward without both parties. If the other side never joins or agrees, the case simply doesn't advance — and you're not charged for a process that didn't happen." },
     { q: "How is the decision binding?", a: "When both parties accept a decision, that acceptance is recorded with a timestamp and written into the tamper-evident audit chain, along with the terms you agreed to." },
   ],
