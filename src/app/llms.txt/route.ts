@@ -1,4 +1,5 @@
 import { GROUPS, categoriesInGroup } from "@/content/referral-categories";
+import { ARBITRATION_SECTIONS, arbitrationTopicsInSection } from "@/content/arbitration-topics";
 
 const BASE = "https://attorney.plus";
 
@@ -28,7 +29,14 @@ export function GET() {
       lines.push(`- ${c.name}: [attorney](${BASE}/attorneys/${c.slug}) · [lawyer](${BASE}/lawyers/${c.slug})`);
     }
   }
-  lines.push("", "## Key pages", `- [Start a case](${BASE}/start)`, `- [Join with a code](${BASE}/join)`, "");
+  lines.push("", "## Arbitration guide");
+  for (const section of ARBITRATION_SECTIONS) {
+    const topics = arbitrationTopicsInSection(section);
+    if (!topics.length) continue;
+    lines.push("", `### ${section}`);
+    for (const t of topics) lines.push(`- [${t.name}](${BASE}/arbitration/${t.slug}): ${t.blurb}`);
+  }
+  lines.push("", "## Key pages", `- [Arbitration guide](${BASE}/arbitration)`, `- [Start a case](${BASE}/start)`, `- [Join with a code](${BASE}/join)`, "");
   return new Response(lines.join("\n"), {
     headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "public, max-age=3600" },
   });

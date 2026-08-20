@@ -33,6 +33,7 @@ export function SiteFooter() {
           <FooterCol title="Find" links={[
             { label: "Find a lawyer", href: "/lawyer" },
             { label: "Find an attorney", href: "/attorney" },
+            { label: "Arbitration guide", href: "/arbitration" },
             { label: "Start a case", href: "/start" },
             { label: "I have a code", href: "/join" },
             { label: "Log in", href: "/auth/login" },
