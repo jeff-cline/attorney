@@ -1,6 +1,9 @@
 import { signIn } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { eq } from "drizzle-orm";
 import Link from "next/link";
+import { db } from "@/lib/db";
+import { users } from "@/db/schema";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +18,8 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
     } catch {
       redirect("/auth/login?error=1");
     }
-    redirect("/dashboard");
+    const u = await db.query.users.findFirst({ where: eq(users.email, email) });
+    redirect(u?.role === "admin" ? "/admin" : "/dashboard");
   }
 
   return (
