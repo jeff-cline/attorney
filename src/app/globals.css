@@ -164,6 +164,9 @@ p { margin: 0; }
 
 /* ── Sections ───────────────────────────────────────────────── */
 section { padding: 84px 0; }
+/* Content pages put <section> inside a .container main — they manage their own
+   spacing and must not inherit the full-bleed landing padding. */
+.container section { padding: 0; }
 .section-tight { padding: 56px 0; }
 .dark-section { background: var(--ink); color: #f2efe7; }
 .dark-section h1, .dark-section h2, .dark-section h3 { color: #fff; }
