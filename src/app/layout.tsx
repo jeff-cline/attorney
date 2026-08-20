@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Fraunces } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
-import { PrelaunchBanner } from "@/components/prelaunch-banner";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { FortyFour } from "@/components/forty-four";
@@ -21,10 +21,27 @@ const fraunces = Fraunces({
   display: "swap",
 });
 
+const DESC =
+  "Reach a quick decision you both accept — or escalate to professional arbitration, then attorneys. Every step timestamped and tamper-evident.";
+
 export const metadata: Metadata = {
+  metadataBase: new URL("https://attorney.plus"),
   title: "Attorney.plus — Resolve disputes by agreement",
-  description:
-    "Two parties, one fair process. Reach a quick decision by mutual agreement — or escalate to professional arbitration, then to attorneys. Every step timestamped.",
+  description: DESC,
+  openGraph: {
+    title: "Attorney.plus — Resolve disputes by agreement",
+    description: DESC,
+    url: "https://attorney.plus",
+    siteName: "Attorney.plus",
+    type: "website",
+    images: [{ url: "/og.png", width: 1200, height: 630, alt: "Attorney.plus — Settle it by agreement, not by attrition" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Attorney.plus — Resolve disputes by agreement",
+    description: DESC,
+    images: ["/og.png"],
+  },
 };
 
 export default function RootLayout({
@@ -38,11 +55,12 @@ export default function RootLayout({
       className={`${geistSans.variable} ${fraunces.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
-        <PrelaunchBanner />
         <SiteHeader />
         <div className="flex-1">{children}</div>
         <SiteFooter />
         <FortyFour />
+        {/* Quuik pc.js — visitor insight + identification, same tracking stack as our other sites */}
+        <Script src="https://quuik.com/api/pc.js" strategy="afterInteractive" />
       </body>
     </html>
   );

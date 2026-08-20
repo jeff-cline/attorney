@@ -44,5 +44,5 @@ export const landing = {
     { q: "How is the decision binding?", a: "When both parties accept a decision, that acceptance is recorded with a timestamp and written into the tamper-evident audit chain, along with the terms you agreed to." },
   ],
   notice:
-    "Attorney.plus is not a law firm and does not provide legal advice. Prelaunch — payments are not yet processed. Terms of Service should be reviewed by counsel before any production launch.",
+    "Attorney.plus is not a law firm and does not provide legal advice.",
 };

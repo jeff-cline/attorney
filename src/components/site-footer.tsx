@@ -45,7 +45,7 @@ export function SiteFooter() {
           style={{ borderColor: "rgba(255,255,255,.14)", color: "rgba(242,239,231,.55)" }}
         >
           <span>© {new Date().getFullYear()} Attorney.plus — not a law firm. Not legal advice.</span>
-          <span>Prelaunch · Terms subject to review by counsel before launch.</span>
+          <span>Resolve disputes fairly — by agreement first.</span>
         </div>
       </div>
     </footer>

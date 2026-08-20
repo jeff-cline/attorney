@@ -32,7 +32,7 @@ export default function Home() {
               </Link>
             </div>
             <p className="mt-5 text-[13px] muted">
-              No obligation to advance · Both parties must agree · Prelaunch — no charges yet
+              No obligation to advance · Both parties must agree · Free to start
             </p>
           </div>
 
