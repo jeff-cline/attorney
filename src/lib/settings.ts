@@ -6,7 +6,12 @@ import { appSettings } from "@/db/schema";
  *  agreements are still being finalized. */
 export const SETTING_KEYS = {
   attorneyShowPercentage: "attorney_show_percentage",
+  arbitrationReferralMultiplier: "arbitration_referral_multiplier",
 } as const;
+
+/** Default multiplier (% of base) for referrals that already went through
+ *  arbitration — higher-intent leads. 200 = 2× base. God-editable. */
+export const DEFAULT_ARB_MULTIPLIER = 200;
 
 export async function getSetting(key: string): Promise<string | null> {
   const row = await db.query.appSettings.findFirst({ where: eq(appSettings.key, key) });
@@ -24,4 +29,12 @@ export async function setSetting(key: string, value: string): Promise<void> {
  *  attorney/God backend. Defaults to false (OFF) until explicitly enabled. */
 export async function attorneyPercentageVisible(): Promise<boolean> {
   return (await getSetting(SETTING_KEYS.attorneyShowPercentage)) === "on";
+}
+
+/** Multiplier (% of base fee) for post-arbitration referrals. Returns DEFAULT
+ *  when unset or invalid. */
+export async function arbitrationMultiplier(): Promise<number> {
+  const raw = await getSetting(SETTING_KEYS.arbitrationReferralMultiplier);
+  const n = raw ? parseInt(raw, 10) : NaN;
+  return Number.isFinite(n) && n >= 100 && n <= 1000 ? n : DEFAULT_ARB_MULTIPLIER;
 }

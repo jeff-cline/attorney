@@ -30,8 +30,9 @@ export function SiteFooter() {
             </p>
           </div>
 
-          <FooterCol title="Resolve" links={[
-            { label: "Find an attorney", href: "/attorneys" },
+          <FooterCol title="Find" links={[
+            { label: "Find a lawyer", href: "/lawyer" },
+            { label: "Find an attorney", href: "/attorney" },
             { label: "Start a case", href: "/start" },
             { label: "I have a code", href: "/join" },
             { label: "Log in", href: "/auth/login" },
@@ -41,9 +42,11 @@ export function SiteFooter() {
             { label: "Privacy", href: "/privacy" },
             { label: "Contact", href: "/contact" },
           ]} />
-          <FooterCol title="Partners" links={[
-            { label: "Attorneys — join our referral program", href: "/contact" },
+          <FooterCol title="Discover" links={[
+            { label: "Attorneys & lawyers — join", href: "/contact" },
             { label: "Advertise with us", href: "/contact" },
+            { label: "Sitemap (XML)", href: "/sitemap.xml", raw: true },
+            { label: "AI & answer engines (llms.txt)", href: "/llms.txt", raw: true },
           ]} />
         </div>
 
@@ -59,18 +62,24 @@ export function SiteFooter() {
   );
 }
 
-function FooterCol({ title, links }: { title: string; links: { label: string; href: string }[] }) {
+function FooterCol({ title, links }: { title: string; links: { label: string; href: string; raw?: boolean }[] }) {
   return (
     <div>
       <h4 className="text-[13px] font-semibold uppercase tracking-[.1em] text-white" style={{ fontFamily: "var(--font-geist-sans)" }}>
         {title}
       </h4>
       <nav className="mt-3 flex flex-col gap-2">
-        {links.map((l) => (
-          <Link key={l.label} href={l.href} className="muted text-[14px] hover:text-[var(--seal-2)]">
-            {l.label}
-          </Link>
-        ))}
+        {links.map((l) =>
+          l.raw ? (
+            <a key={l.label} href={l.href} className="muted text-[14px] hover:text-[var(--seal-2)]">
+              {l.label}
+            </a>
+          ) : (
+            <Link key={l.label} href={l.href} className="muted text-[14px] hover:text-[var(--seal-2)]">
+              {l.label}
+            </Link>
+          ),
+        )}
       </nav>
     </div>
   );

@@ -173,6 +173,11 @@ export function isArbitrable(c: ReferralCategory): boolean {
 }
 
 /* ── consumer-safe content generators (NO fee, NO percentage) ─────── */
+/** "a" / "an" for a following word. */
+export const an = (s: string) => (/^[aeiou]/i.test(s.trim()) ? "an" : "a");
+/** Capitalized "A" / "An" for sentence starts. */
+export const An = (s: string) => (/^[aeiou]/i.test(s.trim()) ? "An" : "A");
+
 export function categoryBlurb(c: ReferralCategory): string {
   const arb = isArbitrable(c);
   return arb
@@ -183,33 +188,35 @@ export function categoryBlurb(c: ReferralCategory): string {
 export function categoryIntro(c: ReferralCategory): string[] {
   const g = getGroup(c.groupSlug);
   const arb = isArbitrable(c);
-  const p1 = `${g?.intro ?? ""} A ${c.name} matter is exactly the kind of situation where knowing your options early changes the outcome — what you can recover or avoid, the deadlines that apply, and who to trust with it.`;
+  const lc = c.name.toLowerCase();
+  const p1 = `${g?.intro ?? ""} ${An(c.name)} ${lc} matter is exactly the kind of situation where knowing your options early changes the outcome — what you can recover or avoid, the deadlines that apply, and who to trust with it.`;
   const p2 = arb
-    ? `Not every ${c.name} dispute needs a lawyer and a lawsuit. When the disagreement is bounded and the facts are clear, Attorney.plus Quick-Resolve can reach a binding resolution in days for a flat fee — and when it isn't the right fit, we match you with a ${c.name.toLowerCase()} attorney suited to your specific need.`
-    : `A ${c.name} matter is handled by an attorney, not arbitration. Attorney.plus matches you quickly with counsel who handles ${c.name.toLowerCase()} cases in your area and is best suited to your specific need.`;
+    ? `Not every ${lc} dispute needs a lawyer and a lawsuit. When the disagreement is bounded and the facts are clear, Attorney.plus Quick-Resolve can reach a binding resolution in days for a flat fee — and when it isn't the right fit, we match you with ${an(c.name)} ${lc} attorney suited to your specific need.`
+    : `${An(c.name)} ${lc} matter is handled by an attorney, not arbitration. Attorney.plus matches you quickly with counsel who handles ${lc} cases in your area and is best suited to your specific need.`;
   return [p1, p2];
 }
 
 export function categoryFaqs(c: ReferralCategory): Array<{ q: string; a: string }> {
   const arb = isArbitrable(c);
+  const lc = c.name.toLowerCase();
   const faqs: Array<{ q: string; a: string }> = [
     {
-      q: `How much does a ${c.name} attorney cost?`,
-      a: `It depends on the matter. Many ${c.name.toLowerCase()} cases are handled on a contingency or flat-fee basis, so you often pay nothing up front. Attorney.plus never charges you a separate fee — we're supported by our attorney network, not by you.`,
+      q: `How much does ${an(c.name)} ${c.name} attorney cost?`,
+      a: `It depends on the matter. Many ${lc} cases are handled on a contingency or flat-fee basis, so you often pay nothing up front. Attorney.plus never charges you a separate fee — we're supported by our attorney network, not by you.`,
     },
     {
-      q: `How quickly should I act on a ${c.name} matter?`,
+      q: `How quickly should I act on ${an(c.name)} ${c.name} matter?`,
       a: `Sooner is always better. Deadlines (statutes of limitation and filing windows) vary by state and situation, and evidence fades. Starting now preserves your options — whether that's Quick-Resolve or an attorney match.`,
     },
   ];
   if (arb) {
     faqs.push({
-      q: `Can I resolve a ${c.name} dispute without hiring a lawyer?`,
-      a: `Often, yes. For a bounded, clear ${c.name.toLowerCase()} dispute, Quick-Resolve arbitration produces a binding resolution in days for a flat fee — both sides agree to the process up front. If it isn't the right fit, we match you with an attorney.`,
+      q: `Can I resolve ${an(c.name)} ${c.name} dispute without hiring a lawyer?`,
+      a: `Often, yes. For a bounded, clear ${lc} dispute, Quick-Resolve arbitration produces a binding resolution in days for a flat fee — both sides agree to the process up front. If it isn't the right fit, we match you with an attorney.`,
     });
   } else {
     faqs.push({
-      q: `Why does a ${c.name} matter need a specialized attorney?`,
+      q: `Why does ${an(c.name)} ${c.name} matter need a specialized attorney?`,
       a: `${c.name} cases carry technical rules, strict deadlines, and high stakes that reward experience. Attorney.plus matches you with counsel who focuses on this exact area rather than a generalist.`,
     });
   }

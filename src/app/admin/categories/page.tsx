@@ -1,7 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { GROUPS, categoriesInGroup, FEE_MULTIPLIER } from "@/content/referral-categories";
-import { attorneyPercentageVisible, setSetting, SETTING_KEYS } from "@/lib/settings";
+import { attorneyPercentageVisible, arbitrationMultiplier, setSetting, SETTING_KEYS } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +9,8 @@ const usd = (n: number) => `$${n.toLocaleString("en-US")}`;
 
 export default async function AdminRateCard() {
   const showPct = await attorneyPercentageVisible();
+  const mult = await arbitrationMultiplier();
+  const arbFee = (base: number) => Math.round((base * mult) / 100);
 
   async function toggle(fd: FormData) {
     "use server";
@@ -16,6 +18,17 @@ export default async function AdminRateCard() {
     if ((s?.user as { role?: string } | undefined)?.role !== "admin") throw new Error("forbidden");
     const next = String(fd.get("next") ?? "off");
     await setSetting(SETTING_KEYS.attorneyShowPercentage, next === "on" ? "on" : "off");
+    revalidatePath("/admin/categories");
+  }
+
+  async function saveMultiplier(fd: FormData) {
+    "use server";
+    const s = await auth();
+    if ((s?.user as { role?: string } | undefined)?.role !== "admin") throw new Error("forbidden");
+    const n = parseInt(String(fd.get("multiplier") ?? ""), 10);
+    if (Number.isFinite(n) && n >= 100 && n <= 1000) {
+      await setSetting(SETTING_KEYS.arbitrationReferralMultiplier, String(n));
+    }
     revalidatePath("/admin/categories");
   }
 
@@ -27,9 +40,28 @@ export default async function AdminRateCard() {
         <div className="eyebrow">Attorney backend</div>
         <h1 className="mt-2 text-[clamp(24px,3vw,32px)]">Referral rate card</h1>
         <p className="muted mt-2 text-[14px]" style={{ maxWidth: 720 }}>
-          {totalCats} categories. <b>Base fee</b> is the attorney&apos;s minimum spend per referral (already ×{FEE_MULTIPLIER} of the source price) — attorneys may bid higher. These figures are attorney/God-facing only and never appear on consumer pages.
+          {totalCats} categories. <b>Direct fee</b> is the attorney&apos;s minimum spend per referral straight from the finder (already ×{FEE_MULTIPLIER} of the source price) — attorneys may bid higher. <b>Post-arbitration</b> is the higher-intent lead after the arbitration funnel. These figures are attorney/God-facing only and never appear on consumer pages.
         </p>
       </header>
+
+      {/* God control: arbitration referral multiplier */}
+      <div className="card flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <div className="text-[15px] font-semibold" style={{ fontFamily: "var(--font-geist-sans)" }}>
+            Arbitration referral multiplier
+          </div>
+          <div className="muted mt-1 text-[13px]" style={{ maxWidth: 560 }}>
+            Applied to the base fee for referrals that already went through arbitration (higher-intent leads). <b>{mult}%</b> = {(mult / 100).toFixed(2)}× base. Example: a $1,000 category becomes <b>{usd(arbFee(1000))}</b> post-arbitration.
+          </div>
+        </div>
+        <form action={saveMultiplier} className="flex items-end gap-2">
+          <label className="field" style={{ marginBottom: 0 }}>
+            <span className="text-[12px] muted">% of base (100–1000)</span>
+            <input name="multiplier" type="number" min={100} max={1000} step={25} defaultValue={mult} style={{ width: 120 }} />
+          </label>
+          <button className="btn btn-brand">Save</button>
+        </form>
+      </div>
 
       {/* God toggle: estimated Managing-Attorney percentage */}
       <div className="card flex flex-wrap items-center justify-between gap-4" style={{ borderLeft: `3px solid ${showPct ? "var(--agreed)" : "var(--seal)"}` }}>
@@ -66,7 +98,8 @@ export default async function AdminRateCard() {
                   <tr style={{ textAlign: "left", color: "var(--muted)", fontSize: 12, textTransform: "uppercase", letterSpacing: ".05em" }}>
                     <th style={{ padding: "8px 20px", width: 44 }}>#</th>
                     <th style={{ padding: "8px 20px" }}>Category</th>
-                    <th style={{ padding: "8px 20px", textAlign: "right" }}>Base fee (min bid)</th>
+                    <th style={{ padding: "8px 20px", textAlign: "right" }}>Direct fee</th>
+                    <th style={{ padding: "8px 20px", textAlign: "right" }}>Post-arb ({mult}%)</th>
                     {showPct && <th style={{ padding: "8px 20px", textAlign: "right" }}>Est. %</th>}
                   </tr>
                 </thead>
@@ -76,6 +109,7 @@ export default async function AdminRateCard() {
                       <td style={{ padding: "9px 20px", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>{c.id}</td>
                       <td style={{ padding: "9px 20px", fontFamily: "var(--font-fraunces)" }}>{c.name}</td>
                       <td style={{ padding: "9px 20px", textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: 600 }}>{usd(c.baseFee)}</td>
+                      <td style={{ padding: "9px 20px", textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: 600, color: "var(--seal)" }}>{usd(arbFee(c.baseFee))}</td>
                       {showPct && (
                         <td style={{ padding: "9px 20px", textAlign: "right", color: c.contingency ? "var(--ink)" : "var(--muted)" }}>
                           {c.contingency ?? "—"}

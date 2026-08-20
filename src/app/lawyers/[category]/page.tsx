@@ -13,18 +13,18 @@ export async function generateMetadata({ params }: { params: Promise<{ category:
   const c = getCategory(category);
   if (!c) return { title: "Not found" };
   const arb = isArbitrable(c);
-  const title = `${c.name} Attorney — ${arb ? "Resolve It Fast or Get Matched" : "Get Matched With the Right Lawyer"} | Attorney.plus`;
-  const description = `${c.name}: understand your options and ${arb ? "resolve it fast with Quick-Resolve or " : ""}get matched with a ${c.name.toLowerCase()} attorney best suited to your need.`;
+  const title = `${c.name} Lawyer — ${arb ? "Get Matched Fast or Resolve It Yourself" : "Find the Right Lawyer for Your Case"} | Attorney.plus`;
+  const description = `Find a ${c.name.toLowerCase()} lawyer suited to your case${arb ? ", or resolve an eligible dispute fast with Quick-Resolve" : ""}. Matched to your category and area — you choose.`;
   return {
     title,
     description,
-    alternates: { canonical: `${BASE}/attorneys/${c.slug}` },
-    openGraph: { title, description, url: `${BASE}/attorneys/${c.slug}`, type: "article", images: [{ url: "/og.png", width: 1200, height: 630 }] },
+    alternates: { canonical: `${BASE}/lawyers/${c.slug}` },
+    openGraph: { title, description, url: `${BASE}/lawyers/${c.slug}`, type: "article", images: [{ url: "/og.png", width: 1200, height: 630 }] },
     twitter: { card: "summary_large_image", title, description, images: ["/og.png"] },
   };
 }
 
-export default async function AttorneyCategoryPage({ params }: { params: Promise<{ category: string }> }) {
+export default async function LawyerCategoryPage({ params }: { params: Promise<{ category: string }> }) {
   const { category } = await params;
-  return <CategorySilo slug={category} variant="attorney" />;
+  return <CategorySilo slug={category} variant="lawyer" />;
 }
