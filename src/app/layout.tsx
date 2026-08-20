@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Fraunces } from "next/font/google";
 import "./globals.css";
 import { PrelaunchBanner } from "@/components/prelaunch-banner";
 import { SiteHeader } from "@/components/site-header";
@@ -9,17 +9,22 @@ import { FortyFour } from "@/components/forty-four";
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+// Modern transitional serif for headlines — authority + editorial gravitas.
+const fraunces = Fraunces({
+  variable: "--font-fraunces",
   subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  style: ["normal", "italic"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "Attorney.plus — Quick decision arbitration",
+  title: "Attorney.plus — Resolve disputes by agreement",
   description:
-    "Two parties. One platform. Settle disputes by mutual agreement first — or escalate to professional arbitration, then attorneys.",
+    "Two parties, one fair process. Reach a quick decision by mutual agreement — or escalate to professional arbitration, then to attorneys. Every step timestamped.",
 };
 
 export default function RootLayout({
@@ -30,7 +35,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${fraunces.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
         <PrelaunchBanner />
