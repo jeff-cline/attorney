@@ -31,6 +31,7 @@ export function SiteFooter() {
           </div>
 
           <FooterCol title="Resolve" links={[
+            { label: "Find an attorney", href: "/attorneys" },
             { label: "Start a case", href: "/start" },
             { label: "I have a code", href: "/join" },
             { label: "Log in", href: "/auth/login" },
