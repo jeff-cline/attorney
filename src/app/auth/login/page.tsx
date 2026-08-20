@@ -4,7 +4,7 @@ import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string; reset?: string }> }) {
   const sp = await searchParams;
   async function loginAction(fd: FormData) {
     "use server";
@@ -25,10 +25,17 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         <h1 className="mt-2 text-[clamp(28px,4vw,38px)]">Log in</h1>
       </div>
       {sp.error && <div className="form-msg err mb-4">Incorrect email or password.</div>}
+      {sp.reset && <div className="form-msg ok mb-4">Password updated. Log in with your new password.</div>}
       <div className="panel">
         <form action={loginAction}>
           <div className="field"><label>Email</label><input name="email" type="email" required placeholder="you@email.com" /></div>
-          <div className="field"><label>Password</label><input name="password" type="password" required placeholder="Your password" /></div>
+          <div className="field">
+            <div className="flex items-baseline justify-between">
+              <label>Password</label>
+              <Link href="/forgot" className="text-[12.5px] underline" style={{ color: "var(--brand)" }}>Forgot password?</Link>
+            </div>
+            <input name="password" type="password" required placeholder="Your password" />
+          </div>
           <button className="btn btn-brand btn-block btn-lg">Log in</button>
         </form>
       </div>

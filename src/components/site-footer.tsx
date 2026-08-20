@@ -9,10 +9,16 @@ export function SiteFooter() {
             <div className="flex items-center gap-2.5">
               <span
                 aria-hidden
-                className="grid h-8 w-8 place-items-center rounded-[9px] text-[15px] font-semibold text-white"
+                className="relative grid h-8 w-8 place-items-center rounded-[9px] text-[15px] font-semibold text-white"
                 style={{ background: "var(--brand)", fontFamily: "var(--font-fraunces)" }}
               >
                 A
+                <span
+                  className="absolute font-bold leading-none"
+                  style={{ top: 3, right: 4, fontSize: 10, color: "var(--seal-2)", fontFamily: "var(--font-geist-sans)" }}
+                >
+                  +
+                </span>
               </span>
               <span className="text-[19px] font-semibold text-white" style={{ fontFamily: "var(--font-fraunces)" }}>
                 Attorney<span style={{ color: "var(--seal-2)" }}>.plus</span>
