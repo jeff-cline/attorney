@@ -9,8 +9,10 @@ import {
   respondToDecision, respondToArbitration,
 } from "@/actions/cases";
 import { payArbitrationFee, postCaseMessage } from "@/actions/arbitrator";
+import { caseTurn, type Turn } from "@/lib/case-turn";
 import { StatusChip } from "@/components/status-chip";
 import { CopyCode } from "@/components/copy-code";
+import { CasePoller } from "@/components/case-poller";
 
 const usd = (n: number) => `$${n.toLocaleString("en-US")}`;
 
@@ -55,6 +57,7 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
   const messages = c.status === "arbitration" ? await db.select().from(caseMessages).where(eq(caseMessages.caseId, c.id)).orderBy(caseMessages.createdAt) : [];
   const myArbFeePaid = isInitiator ? c.initiatorArbFeePaidAt : c.joinerArbFeePaidAt;
   const feeShare = c.arbitratorFee ? Math.ceil(c.arbitratorFee / 2) : 0;
+  const turn = caseTurn(c, uid, Boolean(myStatement));
   const escalated = ["arbitration", "arbitration_ruling", "litigation"].includes(c.status);
   const litigation = c.status === "litigation";
   const stageIdx = STAGE[c.status] ?? 0;
@@ -86,6 +89,9 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
         </div>
         <StatusChip status={c.status} />
       </header>
+
+      <TurnBanner turn={turn} />
+      <CasePoller caseId={id} updatedAt={c.updatedAt.toISOString()} />
 
       <div className="mt-8 grid gap-8 md:grid-cols-[280px_1fr]">
         {/* progress spine */}
@@ -195,6 +201,13 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
           {c.status === "ai_decision" && (
             <Panel title="Proposed resolution" tone="seal">
               <Prose text={c.aiDecision ?? ""} />
+              {c.aiCitations && c.aiCitations.length > 0 && (
+                <div className="mt-3">
+                  <div className="eyebrow">Authorities & principles considered</div>
+                  <ul className="mt-1 pl-5 text-[13.5px] muted" style={{ listStyle: "disc" }}>{c.aiCitations.map((cit, i) => <li key={i}>{cit}</li>)}</ul>
+                  <p className="muted mt-1 text-[12px]">AI-suggested and informational only — not legal advice. Verify with a licensed attorney before relying on any authority.</p>
+                </div>
+              )}
               {myDecision ? (
                 <Waiting
                   done={false}
@@ -326,6 +339,22 @@ function Prose({ text }: { text: string }) {
   return (
     <div className="mt-3 whitespace-pre-wrap rounded-[12px] border p-4 text-[15px] leading-relaxed" style={{ borderColor: "var(--line)", background: "#fdfcf9" }}>
       {text}
+    </div>
+  );
+}
+function TurnBanner({ turn }: { turn: Turn }) {
+  const s = turn.terminal
+    ? { bg: "var(--brand-100)", accent: "var(--agreed)", icon: "✓" }
+    : turn.mine
+      ? { bg: "#fbf3df", accent: "var(--seal)", icon: "✋" }
+      : { bg: "#efeadf", accent: "var(--muted)", icon: "⏳" };
+  return (
+    <div className="mt-6 flex items-start gap-3 rounded-[14px] px-5 py-4" style={{ background: s.bg, borderLeft: `4px solid ${s.accent}` }}>
+      <span style={{ fontSize: 20, lineHeight: 1 }} aria-hidden>{s.icon}</span>
+      <div>
+        <div className="text-[16px] font-semibold" style={{ fontFamily: "var(--font-geist-sans)", color: "var(--ink)" }}>{turn.label}</div>
+        <div className="muted mt-0.5 text-[14px]">{turn.detail}</div>
+      </div>
     </div>
   );
 }

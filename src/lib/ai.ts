@@ -10,7 +10,10 @@
  * parties said and proposes a middle path for them to agree to.
  */
 
+import { getAiConfig } from "@/lib/settings";
+
 export type PartyStatement = { name: string; statement: string };
+export type AiResolution = { decidable: boolean; resolution: string; citations: string[] };
 
 function firstSentences(text: string, n: number): string {
   const parts = text.replace(/\s+/g, " ").trim().split(/(?<=[.!?])\s+/);
@@ -49,8 +52,48 @@ export function proposedResolution(subject: string | null, parties: PartyStateme
   lines.push("• On mutual acceptance, the matter is fully and finally settled, with terms and timestamps recorded in the audit chain.");
   lines.push("");
   lines.push("If both parties accept, this becomes the binding resolution. If either declines, an independent professional arbitrator is assigned to review both accounts and issue a ruling.");
-  // NOTE: To cite actual case law, swap this for a real LLM call (Grok via the
-  // Core API). Any AI-surfaced citations MUST be verified by a licensed attorney
-  // before being shown as authoritative — never present unverified case cites.
   return lines.join("\n");
+}
+
+/**
+ * Decide-or-escalate. When a God-configured AI provider is present, ask the model
+ * for a confident, principle-cited resolution — OR to declare the matter not
+ * decidable (a genuine factual split / missing info), which the caller uses to
+ * auto-escalate to a paid professional arbitrator. Without a provider, falls back
+ * to the deterministic stub (always decidable, no citations).
+ */
+export async function aiResolve(subject: string | null, parties: PartyStatement[]): Promise<AiResolution> {
+  const cfg = await getAiConfig();
+  if (cfg.provider && cfg.key) {
+    const base = cfg.provider === "openai" ? "https://api.openai.com/v1" : "https://api.x.ai/v1";
+    const model = cfg.model || (cfg.provider === "openai" ? "gpt-4o-mini" : "grok-2-latest");
+    const system =
+      "You are a neutral dispute-resolution assistant for a US arbitration platform. Read BOTH parties' accounts and either (a) propose a fair, specific resolution when the facts allow a confident decision, or (b) set decidable=false when the accounts present a genuine factual split, credibility contest, or missing information that only a human arbitrator can resolve. You may reference general legal principles or well-known doctrines that inform the recommendation, but NEVER invent case names, numbers, or citations you are not certain exist. Not legal advice. Respond ONLY as compact JSON: {\"decidable\": boolean, \"resolution\": string, \"citations\": string[]}.";
+    const userMsg = `Subject: ${subject ?? "n/a"}\n\n${parties.map((p) => `${p.name}:\n${p.statement}`).join("\n\n")}`;
+    try {
+      const res = await fetch(`${base}/chat/completions`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${cfg.key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model, temperature: 0.2, response_format: { type: "json_object" }, messages: [{ role: "system", content: system }, { role: "user", content: userMsg }] }),
+      });
+      if (res.ok) {
+        const j = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+        const raw = j.choices?.[0]?.message?.content;
+        if (raw) {
+          const p = JSON.parse(raw) as { decidable?: boolean; resolution?: string; citations?: unknown };
+          return {
+            decidable: Boolean(p.decidable),
+            resolution: String(p.resolution ?? "").slice(0, 6000),
+            citations: Array.isArray(p.citations) ? p.citations.map(String).slice(0, 10) : [],
+          };
+        }
+      }
+    } catch {
+      /* fall through */
+    }
+    // Provider configured but the call failed → be safe and route to a human.
+    return { decidable: false, resolution: "", citations: [] };
+  }
+  // No AI provider configured → deterministic stub.
+  return { decidable: true, resolution: proposedResolution(subject, parties), citations: [] };
 }

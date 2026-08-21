@@ -11,8 +11,7 @@ import { sha256 } from "@/lib/hash";
 import { captureRequestMeta } from "@/lib/ip";
 import { currentTos } from "@/lib/tos";
 import { sendTemplated } from "@/lib/email";
-import { pleaseAgreeHtml } from "@/emails/templates";
-import { neutralSummary, proposedResolution, type PartyStatement } from "@/lib/ai";
+import { neutralSummary, aiResolve, type PartyStatement } from "@/lib/ai";
 import { notifyGod } from "@/lib/notify";
 import { env } from "@/lib/env";
 
@@ -39,17 +38,24 @@ async function partyName(userId: string): Promise<string> {
   return u?.displayName || u?.email || "A party";
 }
 
-/** Email the OTHER party a nudge with a link to the case. */
+/** Email the OTHER party a clear "it's your turn" nudge with a link to the case. */
 async function nudgeOther(c: CaseRow, actingUserId: string, subject: string) {
   const otherId = actingUserId === c.initiatorId ? c.joinerId : c.initiatorId;
   if (!otherId) return;
   const other = await db.query.users.findFirst({ where: eq(users.id, otherId) });
   if (!other) return;
   const caseUrl = `${env.APP_URL}/dashboard/case/${c.id}`;
+  const html = `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;color:#0f2a2d;line-height:1.6">
+    <h2 style="font-family:Georgia,serif;color:#14524f;margin:0 0 8px">It's your turn on Attorney.plus</h2>
+    <p>${subject}${c.subject ? ` — <b>${c.subject}</b>` : ""}.</p>
+    <p>Log in and open your case to take the next step. There's nothing more the other party can do until you do.</p>
+    <p style="margin:22px 0"><a href="${caseUrl}" style="display:inline-block;background:#14524f;color:#fff;padding:13px 24px;border-radius:999px;text-decoration:none;font-weight:600">Open my case →</a></p>
+    <p style="color:#9a958a;font-size:12px">You're a party to case ${c.inviteCode}. This is an automated notification.</p>
+  </div>`;
   await sendTemplated({
     to: other.email,
-    subject,
-    html: pleaseAgreeHtml({ caseUrl }),
+    subject: `Your turn: ${subject}`,
+    html,
     template: "action-needed",
     payload: { caseId: c.id },
   }).catch(() => {});
@@ -216,16 +222,26 @@ export async function approveSummary(caseId: string) {
   const both = iOk && jOk;
 
   if (both) {
-    // Both approved → produce the AI-assisted proposed resolution.
+    // Both approved → AI decides, or auto-escalates to an arbitrator if it can't.
     const all = await db.select().from(disputeStatements).where(eq(disputeStatements.caseId, c.id));
     const parties: PartyStatement[] = [];
     for (const s of all) parties.push({ name: await partyName(s.userId), statement: s.statement });
-    const decision = proposedResolution(c.subject, parties);
-    await db.update(cases).set({
-      initiatorSummaryOkAt: iOk ?? null, joinerSummaryOkAt: jOk ?? null,
-      aiDecision: decision, aiDecisionAt: now, status: "ai_decision", updatedAt: now,
-    }).where(eq(cases.id, c.id));
-    await nudgeOther(c, userId, "A proposed resolution is ready — accept or decline");
+    const r = await aiResolve(c.subject, parties);
+    if (!r.decidable) {
+      // Natural split / unknown → straight to a paid professional arbitrator.
+      await db.update(cases).set({
+        initiatorSummaryOkAt: iOk ?? null, joinerSummaryOkAt: jOk ?? null,
+        aiDecision: null, aiCitations: [], status: "arbitration", escalatedAt: now, updatedAt: now,
+      }).where(eq(cases.id, c.id));
+      await nudgeOther(c, userId, "The AI couldn't decide — a professional arbitrator will review your case");
+      await notifyGod("⚖️ AI couldn't decide — assign an arbitrator", [`Code: <b>${c.inviteCode}</b>`, `Subject: ${c.subject || "—"}`, `Both parties will pay their share of the arbitration fee.`]);
+    } else {
+      await db.update(cases).set({
+        initiatorSummaryOkAt: iOk ?? null, joinerSummaryOkAt: jOk ?? null,
+        aiDecision: r.resolution, aiCitations: r.citations, aiDecisionAt: now, status: "ai_decision", updatedAt: now,
+      }).where(eq(cases.id, c.id));
+      await nudgeOther(c, userId, "A proposed resolution is ready — accept or decline");
+    }
   } else {
     await db.update(cases).set({ initiatorSummaryOkAt: iOk ?? null, joinerSummaryOkAt: jOk ?? null, updatedAt: now }).where(eq(cases.id, c.id));
     await nudgeOther(c, userId, "The other party approved the summary — your turn");

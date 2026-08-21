@@ -110,6 +110,7 @@ export const cases = pgTable(
     joinerSummaryOkAt: timestamp("joiner_summary_ok_at", { withTimezone: true }),
     // AI-assisted proposed resolution
     aiDecision: text("ai_decision"),
+    aiCitations: jsonb("ai_citations").$type<string[]>().notNull().default([]),
     aiDecisionAt: timestamp("ai_decision_at", { withTimezone: true }),
     initiatorDecision: varchar("initiator_decision", { length: 10 }), // 'agree' | 'disagree'
     joinerDecision: varchar("joiner_decision", { length: 10 }),

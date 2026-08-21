@@ -10,6 +10,9 @@ export const SETTING_KEYS = {
   stripePublishableKey: "stripe_publishable_key",
   stripeSecretKey: "stripe_secret_key",
   stripePremiumPriceId: "stripe_premium_price_id",
+  aiProvider: "ai_provider", // 'xai' | 'openai'
+  aiApiKey: "ai_api_key",
+  aiModel: "ai_model",
 } as const;
 
 /** Monthly price of the Premium Partner tier (exclusive niche per state). */
@@ -59,4 +62,18 @@ export async function getStripeConfig(): Promise<StripeConfig> {
 export async function paymentsConfigured(): Promise<boolean> {
   const c = await getStripeConfig();
   return Boolean(c.secret && c.priceId);
+}
+
+export type AiConfig = { provider: string | null; key: string | null; model: string | null };
+export async function getAiConfig(): Promise<AiConfig> {
+  const [provider, key, model] = await Promise.all([
+    getSetting(SETTING_KEYS.aiProvider),
+    getSetting(SETTING_KEYS.aiApiKey),
+    getSetting(SETTING_KEYS.aiModel),
+  ]);
+  return { provider, key, model };
+}
+export async function aiConfigured(): Promise<boolean> {
+  const c = await getAiConfig();
+  return Boolean(c.provider && c.key);
 }
