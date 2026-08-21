@@ -39,6 +39,7 @@ export function SiteFooter() {
             { label: "Log in", href: "/auth/login" },
           ]} />
           <FooterCol title="Company" links={[
+            { label: "Investors", href: "/investor" },
             { label: "Terms", href: "/tos" },
             { label: "Privacy", href: "/privacy" },
             { label: "Contact", href: "/contact" },

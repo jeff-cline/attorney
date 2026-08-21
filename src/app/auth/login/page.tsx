@@ -19,7 +19,14 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       redirect("/auth/login?error=1");
     }
     const u = await db.query.users.findFirst({ where: eq(users.email, email) });
-    redirect(u?.role === "admin" ? "/admin" : u?.role === "attorney" ? "/portal" : u?.role === "arbitrator" ? "/arbitrator" : "/dashboard");
+    if (u?.mustChangePassword) redirect("/account/password");
+    redirect(
+      u?.role === "admin" ? "/admin"
+        : u?.role === "attorney" ? "/portal"
+        : u?.role === "arbitrator" ? "/arbitrator"
+        : u?.role === "investor" ? "/investor/overview"
+        : "/dashboard"
+    );
   }
 
   return (

@@ -38,7 +38,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           email: u.email,
           name: u.displayName ?? null,
           role: u.role,
-        } as { id: string; email: string; name: string | null; role: string };
+          mustChangePassword: u.mustChangePassword,
+        } as { id: string; email: string; name: string | null; role: string; mustChangePassword: boolean };
       },
     }),
   ],
@@ -47,6 +48,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (user) {
         token.role = (user as { role?: string }).role ?? "user";
         token.uid = (user as { id?: string }).id;
+        token.mustChange = (user as { mustChangePassword?: boolean }).mustChangePassword ?? false;
       }
       return token;
     },
@@ -54,6 +56,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (session.user) {
         (session.user as { id?: string }).id = token.uid as string;
         (session.user as { role?: string }).role = token.role as string;
+        (session.user as { mustChangePassword?: boolean }).mustChangePassword = Boolean(token.mustChange);
         // God-mode impersonation: honored ONLY when the real user is an admin.
         if (token.role === "admin") {
           const impUid = await getImpersonatedUserId();

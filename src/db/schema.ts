@@ -14,7 +14,7 @@ import {
   jsonb,
 } from "drizzle-orm/pg-core";
 
-export const userRole = pgEnum("user_role", ["user", "admin", "attorney", "arbitrator"]);
+export const userRole = pgEnum("user_role", ["user", "admin", "attorney", "arbitrator", "investor"]);
 export const caseStatus = pgEnum("case_status", [
   // legacy values kept so existing rows remain valid
   "pending_join",
@@ -44,6 +44,7 @@ export const users = pgTable("users", {
   passwordHash: text("password_hash"),
   displayName: text("display_name"),
   role: userRole("role").notNull().default("user"),
+  mustChangePassword: boolean("must_change_password").notNull().default(false),
   emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
@@ -286,6 +287,16 @@ export const attorneyProfiles = pgTable("attorney_profiles", {
   exclusiveState: varchar("exclusive_state", { length: 2 }),
   premiumSince: timestamp("premium_since", { withTimezone: true }),
   refCode: varchar("ref_code", { length: 16 }).unique(), // personal referral code -> /start?ref=<code>
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Investor / data-room access request. persona drives what they self-identify as.
+export const investorProfiles = pgTable("investor_profiles", {
+  userId: uuid("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  firstName: text("first_name"),
+  lastName: text("last_name"),
+  phone: varchar("phone", { length: 32 }),
+  persona: varchar("persona", { length: 32 }).notNull().default("investor"), // attorney|consumer|investor|accredited|fund|private_equity
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
