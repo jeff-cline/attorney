@@ -1,16 +1,31 @@
 import { revalidatePath } from "next/cache";
+import { isNotNull } from "drizzle-orm";
 import { auth } from "@/lib/auth";
+import { db } from "@/lib/db";
+import { cases } from "@/db/schema";
+import { checkAiHealth } from "@/lib/ai";
 import { getStripeConfig, getAiConfig, aiConfigured, setSetting, paymentsConfigured, SETTING_KEYS, PREMIUM_PRICE_MONTHLY } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
 const mask = (v: string | null) => (v ? `${v.slice(0, 7)}…${v.slice(-4)}` : "not set");
+const OPENAI_BILLING = "https://platform.openai.com/settings/organization/billing/overview";
+const usd = (micros: number) => `$${(micros / 1_000_000).toFixed(micros < 100_000 ? 4 : 2)}`;
 
 export default async function AdminIntegrations() {
   const cfg = await getStripeConfig();
   const live = await paymentsConfigured();
   const ai = await getAiConfig();
   const aiOn = await aiConfigured();
+  const health = aiOn ? await checkAiHealth() : { status: "off" as const };
+
+  // Per-case AI spend so far.
+  const decided = aiOn ? await db.select({ c: cases.aiCostMicros }).from(cases).where(isNotNull(cases.aiCostMicros)) : [];
+  const totalMicros = decided.reduce((a, r) => a + (r.c ?? 0), 0);
+  const nDecisions = decided.length;
+  const avgMicros = nDecisions ? Math.round(totalMicros / nDecisions) : 0;
+  const healthLabel: Record<string, string> = { active: "Reachable — credits available", no_credits: "OUT OF CREDITS — top up", bad_key: "Invalid API key", error: "Unreachable / error", off: "Not configured" };
+  const healthOk = health.status === "active";
 
   async function save(fd: FormData) {
     "use server";
@@ -90,11 +105,38 @@ export default async function AdminIntegrations() {
         <p className="muted mt-2 text-[14px]">When configured, the Quick-Resolve step asks your AI provider for a confident, principle-cited resolution — or, if the accounts present a genuine split, it <b>auto-escalates to a paid arbitrator</b>. Until then a neutral non-citing decision is used.</p>
       </header>
 
-      <div className="card flex items-center justify-between" style={{ borderLeft: `3px solid ${aiOn ? "var(--agreed)" : "var(--seal)"}` }}>
-        <span className="text-[15px] font-semibold" style={{ fontFamily: "var(--font-geist-sans)" }}>
-          {aiOn ? `AI decisions LIVE (${ai.provider})` : "AI decisions OFF — add a provider + key"}
-        </span>
-        <span className={`chip ${aiOn ? "chip-agreed" : "chip-seal"}`}><span className="chip-dot" />{aiOn ? "Configured" : "Not configured"}</span>
+      <div className="card" style={{ borderLeft: `3px solid ${healthOk ? "var(--agreed)" : health.status === "no_credits" ? "var(--escalate)" : "var(--seal)"}` }}>
+        <div className="flex items-center justify-between">
+          <span className="text-[15px] font-semibold" style={{ fontFamily: "var(--font-geist-sans)" }}>
+            {aiOn ? `AI decisions — ${ai.provider} · ${ai.model || "default"}` : "AI decisions OFF — add a provider + key"}
+          </span>
+          <span className={`chip ${healthOk ? "chip-agreed" : health.status === "no_credits" ? "chip-escalate" : "chip-seal"}`}><span className="chip-dot" />{healthLabel[health.status]}</span>
+        </div>
+
+        {aiOn && (
+          <>
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-[10px] px-3 py-2.5" style={{ background: "var(--paper-2, #efeadf)" }}>
+                <div className="muted text-[12px]">AI decisions run</div>
+                <div className="text-[20px] font-bold" style={{ fontVariantNumeric: "tabular-nums" }}>{nDecisions}</div>
+              </div>
+              <div className="rounded-[10px] px-3 py-2.5" style={{ background: "var(--paper-2, #efeadf)" }}>
+                <div className="muted text-[12px]">Total spent (this app)</div>
+                <div className="text-[20px] font-bold" style={{ fontVariantNumeric: "tabular-nums", color: "var(--seal)" }}>{usd(totalMicros)}</div>
+              </div>
+              <div className="rounded-[10px] px-3 py-2.5" style={{ background: "var(--paper-2, #efeadf)" }}>
+                <div className="muted text-[12px]">Avg cost / case</div>
+                <div className="text-[20px] font-bold" style={{ fontVariantNumeric: "tabular-nums" }}>{usd(avgMicros)}</div>
+              </div>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <a href={OPENAI_BILLING} target="_blank" rel="noopener" className="btn btn-seal">Top up credits ↗</a>
+              <span className="muted text-[12.5px]">
+                {health.status === "no_credits" ? "Your OpenAI API balance is empty — add credits to resume." : "OpenAI doesn't expose the dollar balance to API keys, so this shows live reachability + your spend here. Add an admin key later for exact balances."}
+              </span>
+            </div>
+          </>
+        )}
       </div>
 
       <form action={saveAi} className="card space-y-1">

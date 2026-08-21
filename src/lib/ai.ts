@@ -13,7 +13,44 @@
 import { getAiConfig } from "@/lib/settings";
 
 export type PartyStatement = { name: string; statement: string };
-export type AiResolution = { decidable: boolean; resolution: string; citations: string[] };
+export type AiUsage = { promptTokens: number; completionTokens: number; costMicros: number };
+export type AiResolution = { decidable: boolean; resolution: string; citations: string[]; usage?: AiUsage };
+
+/** $ per 1,000,000 tokens (input, output). */
+const PRICING: Record<string, { in: number; out: number }> = {
+  "gpt-4o": { in: 2.5, out: 10 },
+  "gpt-4o-mini": { in: 0.15, out: 0.6 },
+  "gpt-4.1": { in: 2.0, out: 8 },
+  "gpt-4.1-mini": { in: 0.4, out: 1.6 },
+  "grok-2-latest": { in: 2.0, out: 10 },
+};
+function costMicros(model: string, promptTokens: number, completionTokens: number): number {
+  const p = PRICING[model] ?? { in: 2.5, out: 10 }; // default to gpt-4o rates
+  return Math.round(promptTokens * p.in + completionTokens * p.out); // tokens × ($/1M) = micro-dollars
+}
+
+/** Live reachability + quota check for the God console (fires a 1-token call). */
+export async function checkAiHealth(): Promise<{ status: "off" | "active" | "no_credits" | "bad_key" | "error"; detail?: string }> {
+  const cfg = await getAiConfig();
+  if (!cfg.provider || !cfg.key) return { status: "off" };
+  const base = cfg.provider === "openai" ? "https://api.openai.com/v1" : "https://api.x.ai/v1";
+  const model = cfg.model || (cfg.provider === "openai" ? "gpt-4o" : "grok-2-latest");
+  try {
+    const res = await fetch(`${base}/chat/completions`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${cfg.key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ model, max_tokens: 1, messages: [{ role: "user", content: "ok" }] }),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (res.ok) return { status: "active" };
+    if (res.status === 401) return { status: "bad_key" };
+    const body = await res.text();
+    if (res.status === 429 || /insufficient_quota|no credits/i.test(body)) return { status: "no_credits" };
+    return { status: "error", detail: body.slice(0, 120) };
+  } catch (e) {
+    return { status: "error", detail: e instanceof Error ? e.message : "unreachable" };
+  }
+}
 
 function firstSentences(text: string, n: number): string {
   const parts = text.replace(/\s+/g, " ").trim().split(/(?<=[.!?])\s+/);
@@ -84,16 +121,19 @@ export async function aiResolve(subject: string | null, parties: PartyStatement[
         body: JSON.stringify({ model, temperature: 0.2, response_format: { type: "json_object" }, messages: [{ role: "system", content: system }, { role: "user", content: userMsg }] }),
       });
       if (res.ok) {
-        const j = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+        const j = (await res.json()) as { choices?: { message?: { content?: string } }[]; usage?: { prompt_tokens?: number; completion_tokens?: number } };
         const raw = j.choices?.[0]?.message?.content;
         if (raw) {
           const p = JSON.parse(raw) as { decidable?: boolean; resolution?: string; citations?: unknown };
+          const pt = j.usage?.prompt_tokens ?? 0;
+          const ct = j.usage?.completion_tokens ?? 0;
           // Only a genuine model verdict of decidable=false escalates. A successful,
           // decidable response returns the cited resolution.
           return {
             decidable: Boolean(p.decidable),
             resolution: String(p.resolution ?? "").slice(0, 6000),
             citations: Array.isArray(p.citations) ? p.citations.map(String).slice(0, 10) : [],
+            usage: { promptTokens: pt, completionTokens: ct, costMicros: costMicros(model, pt, ct) },
           };
         }
       }

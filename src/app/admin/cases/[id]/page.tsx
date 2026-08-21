@@ -77,7 +77,14 @@ export default async function AdminCaseDetail({ params }: { params: Promise<{ id
       {c.neutralSummary && <Block title="Neutral summary" text={c.neutralSummary} />}
       {c.aiDecision && (
         <Block title="AI-assisted proposed resolution" text={c.aiDecision}
-          footer={`Initiator: ${c.initiatorDecision ?? "—"} · Joiner: ${c.joinerDecision ?? "—"}`} />
+          footer={`Initiator: ${c.initiatorDecision ?? "—"} · Joiner: ${c.joinerDecision ?? "—"}${c.aiCostMicros != null ? ` · AI cost: $${(c.aiCostMicros / 1_000_000).toFixed(4)} (${c.aiPromptTokens ?? 0} in / ${c.aiCompletionTokens ?? 0} out)` : ""}`} />
+      )}
+      {c.aiCitations && c.aiCitations.length > 0 && (
+        <section className="card">
+          <h2 className="mb-2 text-[19px]">Authorities cited by AI</h2>
+          <ul className="pl-5 text-[14px]" style={{ listStyle: "disc" }}>{c.aiCitations.map((cit, i) => <li key={i}>{cit}</li>)}</ul>
+          <p className="muted mt-2 text-[12px]">AI-suggested — verify before relying on any authority.</p>
+        </section>
       )}
 
       {/* professional arbitration — assign + ruling */}

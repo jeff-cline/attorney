@@ -113,6 +113,9 @@ export const cases = pgTable(
     aiDecision: text("ai_decision"),
     aiCitations: jsonb("ai_citations").$type<string[]>().notNull().default([]),
     aiDecisionAt: timestamp("ai_decision_at", { withTimezone: true }),
+    aiPromptTokens: integer("ai_prompt_tokens"),
+    aiCompletionTokens: integer("ai_completion_tokens"),
+    aiCostMicros: integer("ai_cost_micros"), // cost of the AI decision in USD millionths
     initiatorDecision: varchar("initiator_decision", { length: 10 }), // 'agree' | 'disagree'
     joinerDecision: varchar("joiner_decision", { length: 10 }),
     resolvedAt: timestamp("resolved_at", { withTimezone: true }),

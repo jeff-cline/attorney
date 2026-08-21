@@ -238,7 +238,9 @@ export async function approveSummary(caseId: string) {
     } else {
       await db.update(cases).set({
         initiatorSummaryOkAt: iOk ?? null, joinerSummaryOkAt: jOk ?? null,
-        aiDecision: r.resolution, aiCitations: r.citations, aiDecisionAt: now, status: "ai_decision", updatedAt: now,
+        aiDecision: r.resolution, aiCitations: r.citations, aiDecisionAt: now, status: "ai_decision",
+        aiPromptTokens: r.usage?.promptTokens ?? null, aiCompletionTokens: r.usage?.completionTokens ?? null, aiCostMicros: r.usage?.costMicros ?? null,
+        updatedAt: now,
       }).where(eq(cases.id, c.id));
       await nudgeOther(c, userId, "A proposed resolution is ready — accept or decline");
     }
