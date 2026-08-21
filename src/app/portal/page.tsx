@@ -11,13 +11,14 @@ import { updateSpecialties } from "@/actions/attorney";
 import { FeePicker } from "@/components/fee-picker";
 import { CopyLink } from "@/components/copy-link";
 import { ensureRefCode, coinBalance, coinHistory, COINS_REFERRAL_SIGNUP, COINS_REFERRAL_PAID } from "@/lib/coins";
+import { claimableLeads } from "@/actions/leads";
 
 export const dynamic = "force-dynamic";
 const usd = (n: number) => `$${n.toLocaleString("en-US")}`;
 const fmtDate = (d: Date | null | undefined) => (d ? d.toISOString().slice(0, 10) : "—");
 type Result = { ok: boolean; error?: string } | null;
 
-export default async function Portal({ searchParams }: { searchParams: Promise<{ upgraded?: string; premium?: string; canceled?: string }> }) {
+export default async function Portal({ searchParams }: { searchParams: Promise<{ upgraded?: string; premium?: string; canceled?: string; claimed?: string }> }) {
   const sp = await searchParams;
   const s = await auth();
   const role = (s?.user as { role?: string } | undefined)?.role;
@@ -75,6 +76,7 @@ export default async function Portal({ searchParams }: { searchParams: Promise<{
   const refLink = refCode ? `${origin}/start?ref=${refCode}` : "";
   const coins = await coinBalance(userId);
   const ledger = await coinHistory(userId, 12);
+  const availableLeads = await claimableLeads(userId);
   const reservedLeads = await db
     .select({ id: cases.id, code: cases.inviteCode, subject: cases.subject, at: cases.litigationAt })
     .from(cases)
@@ -103,6 +105,7 @@ export default async function Portal({ searchParams }: { searchParams: Promise<{
       {sp.upgraded && <div className="form-msg ok mt-5">🎉 You&apos;re a Premium Partner. Your exclusive niche is being reserved in your state.</div>}
       {sp.premium === "requested" && <div className="form-msg ok mt-5">Thanks — your exclusivity request is saved. We&apos;ll be in touch to activate it.</div>}
       {sp.canceled && <div className="form-msg mt-5" style={{ background: "#f7ecd6", color: "#96631a" }}>Checkout canceled — no charge was made.</div>}
+      {sp.claimed && <div className="form-msg ok mt-5">✓ Lead claimed. Any A+COINS you had were applied at $1 each — see your balance below.</div>}
 
       {/* referral streams */}
       <div className="mt-7 grid gap-4 md:grid-cols-2">
@@ -147,9 +150,9 @@ export default async function Portal({ searchParams }: { searchParams: Promise<{
               <div className="eyebrow mb-2" style={{ color: "var(--seal)" }}>Reserved for you — free ({reservedLeads.length})</div>
               <ul className="space-y-2">
                 {reservedLeads.map((r) => (
-                  <li key={r.id} className="flex items-center justify-between rounded-[10px] px-3 py-2.5 text-[13.5px]" style={{ background: "#fbf7ec", border: "1px solid var(--seal)" }}>
+                  <li key={r.id} className="flex items-center justify-between gap-3 rounded-[10px] px-3 py-2.5 text-[13.5px]" style={{ background: "#fbf7ec", border: "1px solid var(--seal)" }}>
                     <span><b>{r.code}</b>{r.subject ? ` — ${r.subject}` : ""} <span className="muted">· reached attorneys {fmtDate(r.at)}</span></span>
-                    <span className="chip chip-seal" style={{ fontSize: 10.5 }}>Free lead</span>
+                    <Link href={`/portal/claim/${r.id}`} className="chip chip-seal" style={{ fontSize: 10.5, textDecoration: "none" }}>Claim free →</Link>
                   </li>
                 ))}
               </ul>
@@ -180,6 +183,28 @@ export default async function Portal({ searchParams }: { searchParams: Promise<{
           <p style={{ color: "rgba(255,255,255,.5)", fontSize: 11.5, marginTop: 12 }}>Coins apply automatically as $1-per-coin credit when you&apos;re billed for a lead.</p>
         </div>
       </section>
+
+      {/* available leads — redeem A+COINS at checkout */}
+      {availableLeads.length > 0 && (
+        <section className="mt-6 card">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 style={{ fontSize: 18 }}>Available leads · spend your A+COINS</h2>
+            <span className="chip chip-seal" style={{ fontSize: 11 }}>{coins.toLocaleString("en-US")} coins = {usd(coins)} off</span>
+          </div>
+          <p className="muted mt-2 text-[14px]">Pre-qualified, post-arbitration leads. Your A+COINS auto-apply at $1 each at checkout.</p>
+          <ul className="mt-3 space-y-2">
+            {availableLeads.map((l) => (
+              <li key={l.id} className="flex flex-wrap items-center justify-between gap-3 rounded-[10px] px-3 py-3 text-[14px]" style={{ background: "var(--paper-2)", border: "1px solid var(--line)" }}>
+                <span>
+                  <b>{l.subject || "Dispute"}</b> <span className="muted">· {l.code}{l.jurisdiction ? ` · ${l.jurisdiction}` : ""}</span>
+                  <span className="ml-2 chip chip-pending" style={{ fontSize: 10.5 }}>fee {usd(l.fee)}</span>
+                </span>
+                <Link href={`/portal/claim/${l.id}`} className="btn btn-ink" style={{ padding: "7px 14px", fontSize: 13 }}>Claim — apply coins →</Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {/* premium partner */}
       <section className="mt-6">

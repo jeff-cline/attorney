@@ -305,3 +305,20 @@ export const coinLedger = pgTable(
   },
   (t) => ({ uniqEvent: uniqueIndex("coin_ledger_event_uq").on(t.attorneyId, t.caseId, t.reason) })
 );
+
+// An attorney claiming a post-arbitration (litigation) lead. A+COINS auto-apply
+// at $1/coin; any remainder is the cash referral fee. One claim per attorney+case.
+export const leadClaims = pgTable(
+  "lead_claims",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    attorneyId: uuid("attorney_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    caseId: uuid("case_id").notNull().references(() => cases.id, { onDelete: "cascade" }),
+    feeUsd: integer("fee_usd").notNull(),
+    coinsUsed: integer("coins_used").notNull().default(0),
+    chargedUsd: integer("charged_usd").notNull().default(0),
+    status: varchar("status", { length: 16 }).notNull().default("paid"), // 'paid' | 'pending_payment'
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({ uniqClaim: uniqueIndex("lead_claims_attorney_case_uq").on(t.attorneyId, t.caseId) })
+);

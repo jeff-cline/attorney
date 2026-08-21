@@ -10,6 +10,7 @@ const TABS = [
   { href: "/admin/arbitrators", label: "Arbitrators" },
   { href: "/admin/categories", label: "Rate card" },
   { href: "/admin/integrations", label: "Integrations" },
+  { href: "/admin/people", label: "People" },
   { href: "/admin/users", label: "Users" },
   { href: "/admin/audit", label: "Audit chain" },
   { href: "/admin/tos", label: "Terms" },

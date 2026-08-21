@@ -30,6 +30,17 @@ const statements = [
      created_at timestamptz NOT NULL DEFAULT now()
    )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS coin_ledger_event_uq ON coin_ledger(attorney_id, case_id, reason)`,
+  `CREATE TABLE IF NOT EXISTS lead_claims (
+     id bigserial PRIMARY KEY,
+     attorney_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+     case_id uuid NOT NULL REFERENCES cases(id) ON DELETE CASCADE,
+     fee_usd integer NOT NULL,
+     coins_used integer NOT NULL DEFAULT 0,
+     charged_usd integer NOT NULL DEFAULT 0,
+     status varchar(16) NOT NULL DEFAULT 'paid',
+     created_at timestamptz NOT NULL DEFAULT now()
+   )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS lead_claims_attorney_case_uq ON lead_claims(attorney_id, case_id)`,
 ];
 
 (async () => {

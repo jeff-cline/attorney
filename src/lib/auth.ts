@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { db } from "./db";
 import { users } from "@/db/schema";
 import { env } from "./env";
+import { getImpersonatedUserId } from "./impersonation";
 
 const credSchema = z.object({
   email: z.string().email(),
@@ -53,6 +54,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (session.user) {
         (session.user as { id?: string }).id = token.uid as string;
         (session.user as { role?: string }).role = token.role as string;
+        // God-mode impersonation: honored ONLY when the real user is an admin.
+        if (token.role === "admin") {
+          const impUid = await getImpersonatedUserId();
+          if (impUid && impUid !== token.uid) {
+            const target = await db.query.users.findFirst({ where: eq(users.id, impUid) });
+            if (target) {
+              const su = session.user as unknown as Record<string, unknown>;
+              su.id = target.id;
+              su.email = target.email;
+              su.name = target.displayName ?? null;
+              su.role = target.role;
+              su.impersonating = true;
+              su.impersonatorId = token.uid;
+              su.impersonatorEmail = session.user.email ?? null;
+            }
+          }
+        }
       }
       return session;
     },

@@ -32,6 +32,25 @@ export async function coinBalance(attorneyId: string): Promise<number> {
   return rows.reduce((a, r) => a + (r.d ?? 0), 0);
 }
 
+/** Redeem coins against a dollar fee at $1/coin, capped at the balance and the
+ *  fee. Writes a negative ledger row (idempotent per attorney+case). Returns how
+ *  many coins were applied and the remaining dollars still owed. */
+export async function redeemCoins(
+  attorneyId: string,
+  feeUsd: number,
+  caseId: string
+): Promise<{ coinsUsed: number; remainderUsd: number }> {
+  const bal = await coinBalance(attorneyId);
+  const use = Math.max(0, Math.min(bal, Math.round(feeUsd)));
+  if (use > 0) {
+    await db
+      .insert(coinLedger)
+      .values({ attorneyId, delta: -use, reason: "redeemed", caseId, note: `Applied to lead ${caseId}` })
+      .onConflictDoNothing({ target: [coinLedger.attorneyId, coinLedger.caseId, coinLedger.reason] });
+  }
+  return { coinsUsed: use, remainderUsd: Math.max(0, Math.round(feeUsd) - use) };
+}
+
 /** Recent ledger rows, newest first. */
 export async function coinHistory(attorneyId: string, limit = 30) {
   return db

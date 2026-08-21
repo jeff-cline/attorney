@@ -5,6 +5,7 @@ import "./globals.css";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { FortyFour } from "@/components/forty-four";
+import { ImpersonationBanner } from "@/components/impersonation-banner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -55,6 +56,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${fraunces.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
+        <ImpersonationBanner />
         <SiteHeader />
         <div className="flex-1">{children}</div>
         <SiteFooter />
