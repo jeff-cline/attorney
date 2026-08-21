@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { users } from "@/db/schema";
+import { notifyGod } from "@/lib/notify";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       redirect("/auth/login?error=1");
     }
     const u = await db.query.users.findFirst({ where: eq(users.email, email) });
+    await notifyGod("Login", [`<b>${u?.displayName ?? email}</b> (${u?.role ?? "user"}) just logged in.`, `Email: ${email}`]);
     if (u?.mustChangePassword) redirect("/account/password");
     redirect(
       u?.role === "admin" ? "/admin"

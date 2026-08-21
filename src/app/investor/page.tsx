@@ -1,8 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { ProblemChart, CostChart, RevenueChart } from "@/components/investor-charts";
+import { ProblemChart, CostChart } from "@/components/investor-charts";
 import { InvestorAccessForm } from "@/components/investor-access-form";
-import { PrintButton } from "@/components/print-button";
 
 export const metadata: Metadata = {
   title: "Attorney.plus — Investor Overview",
@@ -16,7 +15,7 @@ export default function InvestorLanding() {
       <section className="dark-section" style={{ padding: "72px 0 60px" }}>
         <div className="container" style={{ maxWidth: 980 }}>
           <div className="eyebrow" style={{ color: "var(--seal-2)" }}>Investor overview</div>
-          <h1 className="mt-3 text-white" style={{ fontSize: "clamp(30px,5vw,52px)", lineHeight: 1.05, maxWidth: 20 + "ch" }}>
+          <h1 className="mt-3" style={{ color: "#fff", fontSize: "clamp(30px,5vw,52px)", lineHeight: 1.05, maxWidth: 20 + "ch" }}>
             Our courthouses are full of cases that never belonged there.
           </h1>
           <p className="mt-5 text-[rgba(242,239,231,.82)]" style={{ fontSize: "clamp(16px,2vw,20px)", maxWidth: "62ch", lineHeight: 1.55 }}>
@@ -76,15 +75,24 @@ export default function InvestorLanding() {
           create at the top of the funnel, monetized through referral commissions and revenue splits worth a
           <b> multiple</b> of the service fees.
         </p>
-        <div className="mt-6 grid gap-6 lg:grid-cols-[1.3fr_1fr]">
-          <RevenueChart />
+        <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_1fr]">
           <div className="card" style={{ background: "var(--ink)", color: "#fff", borderColor: "transparent" }}>
-            <div className="eyebrow" style={{ color: "#e0a94b" }}>Two revenue layers</div>
-            <RevLayer title="Service fees (shown)" body="Per-case platform fees + arbitration cut (30%) + partner subscriptions. Conservative, and the only line we model publicly." />
-            <RevLayer title="Attorney-owned upside (hinted)" body="Referral commissions and revenue splits on every escalated case. Significantly larger — and it grows as the network compounds." gold />
-            <p className="mt-4 text-[12px]" style={{ color: "rgba(255,255,255,.55)", lineHeight: 1.5 }}>
-              Detailed unit economics for the attorney layer are in the gated deck.
+            <div className="eyebrow" style={{ color: "#e0a94b" }}>Three revenue engines</div>
+            <RevLayer title="1 · Exclusive niche leasing" body="100 niches × 52 states = 5,200 exclusive slots at $3,000/mo — recurring, high-margin SaaS." />
+            <RevLayer title="2 · Per-case referral fees" body="A qualified referral on every escalated case, across 100 niches ($375–$5,000 each)." gold />
+            <RevLayer title="3 · Arbitration retainers" body="Platform keeps 30% of every arbitration retainer. Recurring dispute volume." />
+          </div>
+          {/* locked teaser */}
+          <div className="card" style={{ position: "relative", overflow: "hidden", display: "flex", flexDirection: "column", justifyContent: "center", minHeight: 260, textAlign: "center", background: "var(--paper-2)" }}>
+            <div style={{ fontSize: 34 }}>🔒</div>
+            <h3 className="mt-2 text-[20px]">The full model is behind the lockbox</h3>
+            <p className="muted mx-auto mt-2 text-[14px]" style={{ maxWidth: "40ch", lineHeight: 1.55 }}>
+              Interactive 5-year projection, the leasing↔cases mix slider, cost-of-goods, and a SaaS-multiple valuation — all inside. Create a free investor account to see everything.
             </p>
+            <div className="mt-4 flex flex-wrap justify-center gap-2">
+              <Link href="#request-access" className="btn btn-brand">Request access</Link>
+              <Link href="/auth/login" className="btn btn-outline">Log in</Link>
+            </div>
           </div>
         </div>
       </Section>
@@ -115,16 +123,14 @@ export default function InvestorLanding() {
         <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
           <InvestorAccessForm />
           <div className="card">
-            <h3 className="text-[20px]">Materials</h3>
-            <p className="muted mt-1 text-[13.5px]">Executive overview and pitch deck are inside the data room. Preview and download:</p>
+            <h3 className="text-[20px]">Inside the data room 🔒</h3>
+            <p className="muted mt-1 text-[13.5px]">These open once you log in — view online or download as PDF:</p>
             <ul className="mt-4 space-y-3">
-              <DocRow href="/investor/overview" title="Executive overview" note="The thesis, market, model, and ask — one read." />
+              <DocRow href="/investor/overview" title="Executive overview" note="Thesis, market, 3 revenue engines, 5-yr projection, valuation." />
               <DocRow href="/investor/deck" title="Pitch deck" note="Tight, board-ready. Problem → solution → engine → numbers." />
+              <DocRow href="/investor/overview" title="Interactive financial model" note="Leasing↔cases mix slider, COGS, SaaS-multiple valuation." />
             </ul>
-            <div className="mt-5 flex flex-wrap gap-2">
-              <PrintButton label="Download this overview (PDF)" />
-              <Link href="/investor/deck" className="btn btn-ink">Open the deck →</Link>
-            </div>
+            <p className="muted mt-4 text-[12.5px]">Downloads (PDF) are available inside, after login.</p>
           </div>
         </div>
       </Section>

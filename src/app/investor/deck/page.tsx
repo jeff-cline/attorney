@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { requireInvestor } from "@/lib/investor-gate";
 import { PrintButton } from "@/components/print-button";
-import { ProblemChart, CostChart, RevenueChart } from "@/components/investor-charts";
+import { ProblemChart, CostChart } from "@/components/investor-charts";
+import { LeasingModel, CaseEngineModel, CombinedSlider, FiveYearProjection, ValuationBox } from "@/components/revenue-models";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +29,7 @@ export default async function PitchDeck() {
         {/* 1 — Title */}
         <Slide dark>
           <div className="eyebrow" style={{ color: "var(--seal-2)" }}>Confidential pitch · Series</div>
-          <h1 className="mt-3 text-white" style={{ fontSize: "clamp(30px,5vw,54px)", lineHeight: 1.04 }}>Attorney<span style={{ color: "var(--seal-2)" }}>.plus</span></h1>
+          <h1 className="mt-3" style={{ color: "#fff", fontSize: "clamp(30px,5vw,54px)", lineHeight: 1.04 }}>Attorney<span style={{ color: "var(--seal-2)" }}>.plus</span></h1>
           <p className="mt-4 text-[rgba(242,239,231,.82)]" style={{ fontSize: 20, maxWidth: "40ch" }}>The resolution layer for a legal system that can no longer resolve itself.</p>
           <div className="mt-8 flex flex-wrap gap-6 text-[rgba(242,239,231,.7)] text-[13.5px]">
             <span>~40M cases/yr</span><span>·</span><span>~$382B ecosystem cost</span><span>·</span><span>~$400B market</span>
@@ -61,14 +62,31 @@ export default async function PitchDeck() {
         </Slide>
 
         {/* 5 — Engine */}
-        <Slide n="04" kicker="Monetization">
-          <H>Service fees are the floor. The attorney network is the ceiling.</H>
-          <P>Per-case fees + the 30% arbitration cut + subscriptions compound into a durable base — the only line we model publicly. Referral commissions and splits on escalated cases are a <b>multiple</b> on top.</P>
-          <div className="mt-5"><RevenueChart /></div>
+        <Slide n="04" kicker="Monetization · three engines">
+          <H>Leasing, referrals, and arbitration — compounding together.</H>
+          <div className="mt-5 grid gap-4 lg:grid-cols-2">
+            <LeasingModel />
+            <CaseEngineModel />
+          </div>
         </Slide>
 
-        {/* 6 — Flywheel */}
-        <Slide n="05" kicker="Defensibility">
+        {/* 5b — Combined + projection */}
+        <Slide n="05" kicker="The blended model">
+          <H>Tune the mix. Then read five years, after cost of goods.</H>
+          <div className="mt-5 grid gap-4 lg:grid-cols-2">
+            <CombinedSlider />
+            <FiveYearProjection />
+          </div>
+        </Slide>
+
+        {/* 5c — Valuation */}
+        <Slide n="06" kicker="Valuation">
+          <H>What a legal-tech SaaS revenue multiple implies.</H>
+          <div className="mt-5"><ValuationBox /></div>
+        </Slide>
+
+        {/* 7 — Flywheel */}
+        <Slide n="07" kicker="Defensibility">
           <H>A flywheel that markets itself.</H>
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             <Card t="Shed the small stuff" b="Attorneys offload low-value disputes to arbitration — no write-offs." />
@@ -109,7 +127,7 @@ function Slide({ children, n, kicker, dark }: { children: React.ReactNode; n?: s
   );
 }
 function H({ children, light }: { children: React.ReactNode; light?: boolean }) {
-  return <h2 className={light ? "text-white" : ""} style={{ fontSize: "clamp(22px,3.2vw,32px)", lineHeight: 1.12, maxWidth: "26ch" }}>{children}</h2>;
+  return <h2 style={{ color: light ? "#fff" : "var(--ink)", fontSize: "clamp(22px,3.2vw,32px)", lineHeight: 1.12, maxWidth: "26ch" }}>{children}</h2>;
 }
 function P({ children }: { children: React.ReactNode }) {
   return <p className="muted mt-3 text-[15.5px]" style={{ maxWidth: "66ch", lineHeight: 1.6 }}>{children}</p>;

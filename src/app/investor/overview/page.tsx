@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { requireInvestor } from "@/lib/investor-gate";
 import { PrintButton } from "@/components/print-button";
-import { ProblemChart, RevenueChart } from "@/components/investor-charts";
+import { ProblemChart } from "@/components/investor-charts";
+import { LeasingModel, CaseEngineModel, CombinedSlider, FiveYearProjection, ValuationBox } from "@/components/revenue-models";
 
 export const dynamic = "force-dynamic";
 
@@ -45,10 +46,19 @@ export default async function ExecutiveOverview() {
         <P>A trust-first resolution ladder with tamper-evident, timestamped agreements at each step. AI proposes a reasoned, cited resolution; if either party declines, a professional arbitrator rules (platform keeps 30%, arbitrator 70%); if still unresolved, each side is routed to independent counsel — a qualified, paid referral with no conflict.</P>
 
         <div className="pagebreak" />
-        <H>The monetization engine</H>
-        <P>Two layers. <b>Service fees</b> — per-case platform fees, the 30% arbitration cut, and partner subscriptions — form a durable, high-margin base and are the only revenue we model publicly. The <b>attorney network</b> — referral commissions and revenue splits on every escalated case — is a multiple of the service-fee line and compounds as the network grows.</P>
-        <div className="my-6"><RevenueChart /></div>
+        <H>The monetization engine — three revenue streams</H>
+        <P>Three engines compound together: <b>exclusive niche leasing</b> (recurring SaaS), <b>per-case referral fees</b>, and <b>arbitration retainers</b>. The models below are interactive — adjust the mix and read the five-year projection and valuation.</P>
+        <div className="mt-5 grid gap-4 lg:grid-cols-2">
+          <LeasingModel />
+          <CaseEngineModel />
+        </div>
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <CombinedSlider />
+          <FiveYearProjection />
+        </div>
+        <div className="mt-4"><ValuationBox /></div>
 
+        <div className="pagebreak" />
         <H>The flywheel that markets itself</H>
         <P>Attorneys shed low-value disputes into arbitration to cut caseload. If a dispute upgrades into a real case, it returns to the referring attorney — <b>exclusively</b>. Everyone they refer comes back to them, while the opposing party becomes paid volume on our platform. A+COINS, reserved leads, and revenue splits gamify participation, so attorneys scale their firms while shrinking the backlog. Every participant's incentive points at more volume for us.</P>
 
