@@ -99,6 +99,7 @@ export const cases = pgTable(
     status: caseStatus("status").notNull().default("awaiting_initiator_payment"),
     subject: text("subject"), // short description of the dispute
     category: varchar("category", { length: 120 }), // referral-category slug the consumer picked (connects to attorney bidding)
+    jurisdiction: varchar("jurisdiction", { length: 40 }), // US state where the dispute arose (for AI to apply the right law)
     initiatorAgreedAt: timestamp("initiator_agreed_at", { withTimezone: true }),
     joinerAgreedAt: timestamp("joiner_agreed_at", { withTimezone: true }),
     // payment gates (stubbed free until Stripe; timestamp = paid/confirmed)

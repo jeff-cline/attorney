@@ -26,7 +26,8 @@ export default async function StartPage({ searchParams }: { searchParams: Promis
     "use server";
     const subject = String(fd.get("subject") ?? "").trim().slice(0, 160);
     const category = String(fd.get("category") ?? "").trim().slice(0, 120) || undefined;
-    const c = await createCase(subject || undefined, category);
+    const jurisdiction = String(fd.get("jurisdiction") ?? "").trim().slice(0, 40) || undefined;
+    const c = await createCase(subject || undefined, category, jurisdiction);
     redirect(`/dashboard/case/${c.id}`);
   }
 
@@ -57,6 +58,11 @@ export default async function StartPage({ searchParams }: { searchParams: Promis
               <label>What&apos;s the dispute about?</label>
               <input name="subject" required maxLength={160} placeholder="e.g. Security deposit not returned" defaultValue={cat ? cat.name : undefined} />
               <span className="hint">A short title — you&apos;ll give the full account after both parties join.</span>
+            </div>
+            <div className="field">
+              <label>State where this happened <span className="muted">(optional)</span></label>
+              <input name="jurisdiction" maxLength={40} placeholder="e.g. Texas" />
+              <span className="hint">Helps the AI apply the correct state law when proposing a resolution.</span>
             </div>
             <button className="btn btn-brand btn-block btn-lg">Continue →</button>
           </form>

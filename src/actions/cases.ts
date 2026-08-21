@@ -68,14 +68,14 @@ async function getCase(caseId: string): Promise<CaseRow> {
 }
 
 /* ── 1. Start ─────────────────────────────────────────────────────── */
-export async function createCase(subject?: string, category?: string) {
+export async function createCase(subject?: string, category?: string, jurisdiction?: string) {
   const userId = await currentUserId();
   for (let i = 0; i < 6; i++) {
     const code = generateInviteCode();
     try {
       const [c] = await db
         .insert(cases)
-        .values({ inviteCode: code, initiatorId: userId, subject: subject ?? null, category: category ?? null, status: "awaiting_initiator_payment" })
+        .values({ inviteCode: code, initiatorId: userId, subject: subject ?? null, category: category ?? null, jurisdiction: jurisdiction ?? null, status: "awaiting_initiator_payment" })
         .returning();
       await notifyGod("New case started", [
         `Code: <b>${c.inviteCode}</b>`,
@@ -226,7 +226,7 @@ export async function approveSummary(caseId: string) {
     const all = await db.select().from(disputeStatements).where(eq(disputeStatements.caseId, c.id));
     const parties: PartyStatement[] = [];
     for (const s of all) parties.push({ name: await partyName(s.userId), statement: s.statement });
-    const r = await aiResolve(c.subject, parties);
+    const r = await aiResolve(c.subject, parties, c.jurisdiction);
     if (!r.decidable) {
       // Natural split / unknown → straight to a paid professional arbitrator.
       await db.update(cases).set({

@@ -62,14 +62,21 @@ export function proposedResolution(subject: string | null, parties: PartyStateme
  * auto-escalate to a paid professional arbitrator. Without a provider, falls back
  * to the deterministic stub (always decidable, no citations).
  */
-export async function aiResolve(subject: string | null, parties: PartyStatement[]): Promise<AiResolution> {
+export async function aiResolve(subject: string | null, parties: PartyStatement[], jurisdiction?: string | null): Promise<AiResolution> {
   const cfg = await getAiConfig();
   if (cfg.provider && cfg.key) {
     const base = cfg.provider === "openai" ? "https://api.openai.com/v1" : "https://api.x.ai/v1";
-    const model = cfg.model || (cfg.provider === "openai" ? "gpt-4o-mini" : "grok-2-latest");
+    const model = cfg.model || (cfg.provider === "openai" ? "gpt-4o" : "grok-2-latest");
+    const jurLine = jurisdiction?.trim()
+      ? `The governing jurisdiction is ${jurisdiction.trim()}. Apply that state's law and any clearly-applicable federal law.`
+      : "Determine the governing US jurisdiction from the facts (where the parties are and where the events occurred), name it explicitly, and apply that state's law plus any clearly-applicable federal law.";
     const system =
-      "You are a neutral dispute-resolution assistant for a US arbitration platform. Read BOTH parties' accounts and either (a) propose a fair, specific resolution when the facts allow a confident decision, or (b) set decidable=false when the accounts present a genuine factual split, credibility contest, or missing information that only a human arbitrator can resolve. You may reference general legal principles or well-known doctrines that inform the recommendation, but NEVER invent case names, numbers, or citations you are not certain exist. Not legal advice. Respond ONLY as compact JSON: {\"decidable\": boolean, \"resolution\": string, \"citations\": string[]}.";
-    const userMsg = `Subject: ${subject ?? "n/a"}\n\n${parties.map((p) => `${p.name}:\n${p.statement}`).join("\n\n")}`;
+      "You are an experienced neutral arbitrator for a US dispute-resolution platform. Read BOTH parties' accounts and issue a CONCRETE, REASONED DECISION — not a vague 'split the difference' compromise. State plainly what each party should do and the legal basis for it. " +
+      jurLine +
+      " Cite SPECIFIC statutes or code sections by their real number when you are confident they exist (for example a state property, consumer-protection, or civil-practice code section). You MAY reference well-established legal doctrines or principles, but you MUST NOT invent case names, numbers, reporters, or citations you are not certain exist — if unsure of an exact cite, describe the principle instead. " +
+      "If the accounts present a genuine factual dispute or credibility contest that cannot be fairly decided on the written record alone, set decidable=false so a human arbitrator takes over. " +
+      "Respond ONLY as compact JSON: {\"decidable\": boolean, \"resolution\": string, \"citations\": string[]}. In 'resolution' give the reasoned ruling (the jurisdiction applied, what each party must do, and why). In 'citations' list the specific statutes/authorities you actually relied on. This is informational, not legal advice.";
+    const userMsg = `Governing jurisdiction: ${jurisdiction?.trim() || "not specified — infer from the facts"}.\nSubject: ${subject ?? "n/a"}\n\n${parties.map((p) => `${p.name}:\n${p.statement}`).join("\n\n")}`;
     try {
       const res = await fetch(`${base}/chat/completions`, {
         method: "POST",
