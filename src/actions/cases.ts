@@ -287,6 +287,30 @@ export async function respondToDecision(caseId: string, choice: "agree" | "disag
   return getCase(caseId);
 }
 
+/* ── 7b. Regenerate the AI decision (admin) — for cases decided by the stub ── */
+export async function regenerateAiDecision(caseId: string) {
+  const s = await auth();
+  if ((s?.user as { role?: string } | undefined)?.role !== "admin") throw new Error("forbidden");
+  const c = await getCase(caseId);
+  const all = await db.select().from(disputeStatements).where(eq(disputeStatements.caseId, caseId));
+  const parties: PartyStatement[] = [];
+  for (const st of all) parties.push({ name: await partyName(st.userId), statement: st.statement });
+  const r = await aiResolve(c.subject, parties, c.jurisdiction);
+  const now = new Date();
+  if (!r.decidable) {
+    await db.update(cases).set({ aiDecision: null, aiCitations: [], status: "arbitration", escalatedAt: now, initiatorDecision: null, joinerDecision: null, updatedAt: now }).where(eq(cases.id, caseId));
+  } else {
+    await db.update(cases).set({
+      aiDecision: r.resolution, aiCitations: r.citations, aiDecisionAt: now, status: "ai_decision",
+      initiatorDecision: null, joinerDecision: null, // decision changed → parties re-vote
+      aiPromptTokens: r.usage?.promptTokens ?? null, aiCompletionTokens: r.usage?.completionTokens ?? null, aiCostMicros: r.usage?.costMicros ?? null,
+      updatedAt: now,
+    }).where(eq(cases.id, caseId));
+    await nudgeOther(c, c.initiatorId, "The proposed resolution was updated — please review");
+  }
+  return getCase(caseId);
+}
+
 /* ── 8. Arbitrator issues a ruling (admin / arbitrator) ───────────── */
 export async function arbitratorRule(caseId: string, ruling: string) {
   const s = await auth();

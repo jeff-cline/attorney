@@ -13,6 +13,7 @@ import { caseTurn, type Turn } from "@/lib/case-turn";
 import { StatusChip } from "@/components/status-chip";
 import { CopyCode } from "@/components/copy-code";
 import { CasePoller } from "@/components/case-poller";
+import { CitationList } from "@/components/citation-list";
 
 const usd = (n: number) => `$${n.toLocaleString("en-US")}`;
 
@@ -200,28 +201,28 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
           {/* 7. respond to AI decision */}
           {c.status === "ai_decision" && (
             <Panel title="Proposed resolution" tone="seal">
-              <Prose text={c.aiDecision ?? ""} />
-              {c.aiCitations && c.aiCitations.length > 0 && (
-                <div className="mt-3">
-                  <div className="eyebrow">Authorities & principles considered</div>
-                  <ul className="mt-1 pl-5 text-[13.5px] muted" style={{ listStyle: "disc" }}>{c.aiCitations.map((cit, i) => <li key={i}>{cit}</li>)}</ul>
-                  <p className="muted mt-1 text-[12px]">AI-suggested and informational only — not legal advice. Verify with a licensed attorney before relying on any authority.</p>
+              <div className="grid gap-6 lg:grid-cols-[1fr_240px]">
+                <div>
+                  <Prose text={c.aiDecision ?? ""} />
+                  {myDecision ? (
+                    <Waiting
+                      done={false}
+                      youText={myDecision === "agree" ? "You accepted the proposed resolution." : "You declined the proposed resolution."}
+                      next={myDecision === "agree"
+                        ? "If the other party also accepts, the case is resolved. If they decline, it escalates to a professional arbitrator — we'll email you either way."
+                        : "This case will escalate to a professional arbitrator once both responses are in. We'll email you both with next steps and the arbitration fee."}
+                    />
+                  ) : (
+                    <div className="mt-4 flex flex-wrap gap-3">
+                      <form action={decAgree}><button className="btn btn-seal">I accept this resolution</button></form>
+                      <form action={decDisagree}><button className="btn btn-outline">I don&apos;t agree — escalate</button></form>
+                    </div>
+                  )}
                 </div>
-              )}
-              {myDecision ? (
-                <Waiting
-                  done={false}
-                  youText={myDecision === "agree" ? "You accepted the proposed resolution." : "You declined the proposed resolution."}
-                  next={myDecision === "agree"
-                    ? "If the other party also accepts, the case is resolved. If they decline, it escalates to a professional arbitrator — we'll email you either way."
-                    : "This case will escalate to a professional arbitrator once both responses are in. We'll email you both with next steps and the arbitration fee."}
-                />
-              ) : (
-                <div className="mt-4 flex flex-wrap gap-3">
-                  <form action={decAgree}><button className="btn btn-seal">I accept this resolution</button></form>
-                  <form action={decDisagree}><button className="btn btn-outline">I don&apos;t agree — escalate</button></form>
-                </div>
-              )}
+                <aside className="rounded-[12px] p-4" style={{ background: "var(--paper-2, #efeadf)" }}>
+                  <CitationList citations={c.aiCitations ?? []} />
+                </aside>
+              </div>
             </Panel>
           )}
 

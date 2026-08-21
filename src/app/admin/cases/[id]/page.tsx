@@ -3,9 +3,10 @@ import { notFound, redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { cases, agreements, users, disputeStatements, arbitratorProfiles } from "@/db/schema";
-import { arbitratorRule } from "@/actions/cases";
+import { arbitratorRule, regenerateAiDecision } from "@/actions/cases";
 import { assignArbitrator } from "@/actions/arbitrator";
 import { StatusChip } from "@/components/status-chip";
+import { CitationList } from "@/components/citation-list";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +40,11 @@ export default async function AdminCaseDetail({ params }: { params: Promise<{ id
   async function assign(fd: FormData) {
     "use server";
     await assignArbitrator(fd);
+    redirect(`/admin/cases/${id}`);
+  }
+  async function regen() {
+    "use server";
+    await regenerateAiDecision(id);
     redirect(`/admin/cases/${id}`);
   }
 
@@ -76,14 +82,16 @@ export default async function AdminCaseDetail({ params }: { params: Promise<{ id
 
       {c.neutralSummary && <Block title="Neutral summary" text={c.neutralSummary} />}
       {c.aiDecision && (
-        <Block title="AI-assisted proposed resolution" text={c.aiDecision}
-          footer={`Initiator: ${c.initiatorDecision ?? "—"} · Joiner: ${c.joinerDecision ?? "—"}${c.aiCostMicros != null ? ` · AI cost: $${(c.aiCostMicros / 1_000_000).toFixed(4)} (${c.aiPromptTokens ?? 0} in / ${c.aiCompletionTokens ?? 0} out)` : ""}`} />
-      )}
-      {c.aiCitations && c.aiCitations.length > 0 && (
         <section className="card">
-          <h2 className="mb-2 text-[19px]">Authorities cited by AI</h2>
-          <ul className="pl-5 text-[14px]" style={{ listStyle: "disc" }}>{c.aiCitations.map((cit, i) => <li key={i}>{cit}</li>)}</ul>
-          <p className="muted mt-2 text-[12px]">AI-suggested — verify before relying on any authority.</p>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <h2 className="text-[19px]">AI-assisted proposed resolution</h2>
+            {(c.status === "ai_decision" || c.status === "arbitration") && (
+              <form action={regen}><button className="btn btn-outline" style={{ padding: "7px 14px", fontSize: "13px" }}>↻ Regenerate with AI</button></form>
+            )}
+          </div>
+          <div className="mt-3 whitespace-pre-wrap rounded-[10px] border p-4 text-[14.5px] leading-relaxed" style={{ borderColor: "var(--line)", background: "#fdfcf9" }}>{c.aiDecision}</div>
+          <div className="muted mt-3 text-[13px]">Initiator: {c.initiatorDecision ?? "—"} · Joiner: {c.joinerDecision ?? "—"}{c.aiCostMicros != null ? ` · AI cost: $${(c.aiCostMicros / 1_000_000).toFixed(4)} (${c.aiPromptTokens ?? 0} in / ${c.aiCompletionTokens ?? 0} out)` : " · neutral stub (AI didn't run — regenerate above)"}</div>
+          <div className="mt-4"><CitationList citations={c.aiCitations ?? []} /></div>
         </section>
       )}
 
