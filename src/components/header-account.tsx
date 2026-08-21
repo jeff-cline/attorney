@@ -12,6 +12,9 @@ function AccountNav() {
   const authed = status === "authenticated";
   const isAdmin = role === "admin";
   const isAttorney = role === "attorney";
+  const isArbitrator = role === "arbitrator";
+  const home = isArbitrator ? "/arbitrator" : isAttorney ? "/portal" : "/dashboard";
+  const homeLabel = isArbitrator ? "Arbitrator" : isAttorney ? "My portal" : "Dashboard";
 
   return (
     <>
@@ -21,8 +24,8 @@ function AccountNav() {
         </Link>
       )}
       {authed ? (
-        <Link href={isAttorney ? "/portal" : "/dashboard"} className="hidden rounded-full px-3 py-2 font-medium hover:text-[var(--brand)] sm:inline">
-          {isAttorney ? "My portal" : "Dashboard"}
+        <Link href={home} className="hidden rounded-full px-3 py-2 font-medium hover:text-[var(--brand)] sm:inline">
+          {homeLabel}
         </Link>
       ) : (
         <Link href="/auth/login" className="hidden rounded-full px-3 py-2 font-medium hover:text-[var(--brand)] sm:inline">

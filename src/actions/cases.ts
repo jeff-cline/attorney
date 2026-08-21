@@ -13,6 +13,7 @@ import { currentTos } from "@/lib/tos";
 import { sendTemplated } from "@/lib/email";
 import { pleaseAgreeHtml } from "@/emails/templates";
 import { neutralSummary, proposedResolution, type PartyStatement } from "@/lib/ai";
+import { notifyGod } from "@/lib/notify";
 import { env } from "@/lib/env";
 
 const ARBITRATION_TEXT =
@@ -70,6 +71,11 @@ export async function createCase(subject?: string, category?: string) {
         .insert(cases)
         .values({ inviteCode: code, initiatorId: userId, subject: subject ?? null, category: category ?? null, status: "awaiting_initiator_payment" })
         .returning();
+      await notifyGod("New case started", [
+        `Code: <b>${c.inviteCode}</b>`,
+        `Subject: ${c.subject || "—"}`,
+        category ? `Category: ${category}` : "",
+      ].filter(Boolean));
       return c;
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -123,6 +129,7 @@ export async function joinCase(
     .where(eq(cases.id, c.id))
     .returning();
   await nudgeOther(updated, userId, "The other party has joined your case");
+  await notifyGod("Case joined by the other party", [`Code: <b>${updated.inviteCode}</b>`, `Subject: ${updated.subject || "—"}`]);
   return { ok: true, caseId: updated.id };
 }
 
@@ -257,15 +264,22 @@ export async function respondToDecision(caseId: string, choice: "agree" | "disag
   }).where(eq(cases.id, c.id));
 
   await nudgeOther(c, userId, bothAgree ? "Resolved — both parties accepted" : anyDisagree ? "Escalated to a professional arbitrator" : "The other party responded to the proposed resolution");
+  if (anyDisagree) await notifyGod("⚖️ Case escalated — assign an arbitrator", [`Code: <b>${c.inviteCode}</b>`, `Subject: ${c.subject || "—"}`, `Assign an arbitrator in the God console.`]);
+  else if (bothAgree) await notifyGod("Case resolved by AI decision", [`Code: <b>${c.inviteCode}</b>`, `Subject: ${c.subject || "—"}`]);
   return getCase(caseId);
 }
 
 /* ── 8. Arbitrator issues a ruling (admin / arbitrator) ───────────── */
 export async function arbitratorRule(caseId: string, ruling: string) {
   const s = await auth();
-  if ((s?.user as { role?: string } | undefined)?.role !== "admin") throw new Error("forbidden");
+  const u = s?.user as { id?: string; role?: string } | undefined;
+  const c = await getCase(caseId);
+  const isAssignedArbitrator = u?.role === "arbitrator" && c.arbitratorId === u?.id;
+  if (u?.role !== "admin" && !isAssignedArbitrator) throw new Error("forbidden");
   const now = new Date();
   await db.update(cases).set({ arbitratorRuling: ruling.trim(), arbitratorRuledAt: now, status: "arbitration_ruling", updatedAt: now }).where(eq(cases.id, caseId));
+  await nudgeOther(c, c.initiatorId, "The arbitrator has issued a ruling — review it");
+  await notifyGod("Arbitrator issued a ruling", [`Case ${c.inviteCode}`]);
   return getCase(caseId);
 }
 
@@ -297,5 +311,7 @@ export async function respondToArbitration(caseId: string, choice: "agree" | "di
     updatedAt: now,
   }).where(eq(cases.id, c.id));
   await nudgeOther(c, userId, bothAgree ? "Resolved — both parties accepted the ruling" : disagree ? "Escalated to attorneys" : "The other party responded to the ruling");
+  if (disagree) await notifyGod("Case escalated to attorneys (litigation)", [`Code: <b>${c.inviteCode}</b>`, `Subject: ${c.subject || "—"}`, `Each side should be matched with independent counsel.`]);
+  else if (bothAgree) await notifyGod("Case resolved by arbitrator ruling", [`Code: <b>${c.inviteCode}</b>`, `Subject: ${c.subject || "—"}`]);
   return getCase(caseId);
 }

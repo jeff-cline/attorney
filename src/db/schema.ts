@@ -14,7 +14,7 @@ import {
   jsonb,
 } from "drizzle-orm/pg-core";
 
-export const userRole = pgEnum("user_role", ["user", "admin", "attorney"]);
+export const userRole = pgEnum("user_role", ["user", "admin", "attorney", "arbitrator"]);
 export const caseStatus = pgEnum("case_status", [
   // legacy values kept so existing rows remain valid
   "pending_join",
@@ -116,6 +116,10 @@ export const cases = pgTable(
     resolvedAt: timestamp("resolved_at", { withTimezone: true }),
     // escalation → professional arbitrator
     escalatedAt: timestamp("escalated_at", { withTimezone: true }),
+    arbitratorId: uuid("arbitrator_id").references(() => users.id, { onDelete: "set null" }),
+    arbitratorFee: integer("arbitrator_fee"), // total $ set by God for this case
+    initiatorArbFeePaidAt: timestamp("initiator_arb_fee_paid_at", { withTimezone: true }),
+    joinerArbFeePaidAt: timestamp("joiner_arb_fee_paid_at", { withTimezone: true }),
     arbitratorRuling: text("arbitrator_ruling"),
     arbitratorRuledAt: timestamp("arbitrator_ruled_at", { withTimezone: true }),
     initiatorArbOkAt: timestamp("initiator_arb_ok_at", { withTimezone: true }),
@@ -236,6 +240,28 @@ export const appSettings = pgTable("app_settings", {
   key: varchar("key", { length: 80 }).primaryKey(),
   value: text("value").notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Professional arbitrator profile (role = 'arbitrator'). God sets fee + coverage.
+export const arbitratorProfiles = pgTable("arbitrator_profiles", {
+  userId: uuid("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  states: jsonb("states").$type<string[]>().notNull().default([]), // 2-letter codes; empty + national=false = none
+  national: boolean("national").notNull().default(false),
+  feePerCase: integer("fee_per_case").notNull().default(0), // God-set default fee ($)
+  systemCutPct: integer("system_cut_pct").notNull().default(30), // platform keeps this %; arbitrator gets the rest
+  bio: text("bio"),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Follow-up Q&A thread on a case (arbitrator asks; parties answer).
+export const caseMessages = pgTable("case_messages", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  caseId: uuid("case_id").notNull().references(() => cases.id, { onDelete: "cascade" }),
+  authorId: uuid("author_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  authorRole: varchar("author_role", { length: 16 }).notNull(), // 'arbitrator' | 'party'
+  body: text("body").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 // Referral-network attorney profile (role = 'attorney'). specialties = category slugs.

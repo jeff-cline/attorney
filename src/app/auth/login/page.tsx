@@ -19,7 +19,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       redirect("/auth/login?error=1");
     }
     const u = await db.query.users.findFirst({ where: eq(users.email, email) });
-    redirect(u?.role === "admin" ? "/admin" : u?.role === "attorney" ? "/portal" : "/dashboard");
+    redirect(u?.role === "admin" ? "/admin" : u?.role === "attorney" ? "/portal" : u?.role === "arbitrator" ? "/arbitrator" : "/dashboard");
   }
 
   return (

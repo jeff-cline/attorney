@@ -79,6 +79,14 @@ export async function registerAttorney(
     userAgent: meta.userAgent,
   });
 
+  const { notifyGod } = await import("@/lib/notify");
+  await notifyGod("New attorney signed up", [
+    `<b>${parsed.displayName}</b> (${parsed.email})`,
+    parsed.firmName ? `Firm: ${parsed.firmName}` : "",
+    parsed.barState ? `Bar: ${parsed.barState.toUpperCase()}` : "",
+    `Specialties: ${specialties.length}`,
+  ].filter(Boolean));
+
   await signIn("credentials", { email: parsed.email, password: parsed.password, redirect: false });
   return { ok: true };
 }

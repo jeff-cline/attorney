@@ -10,6 +10,7 @@ import { appendAgreement } from "@/lib/audit";
 import { sha256 } from "@/lib/hash";
 import { captureRequestMeta } from "@/lib/ip";
 import { signIn } from "@/lib/auth";
+import { notifyGod } from "@/lib/notify";
 
 const SignupInput = z.object({
   email: z
@@ -69,6 +70,11 @@ export async function signupAndAcceptTos(
     ipAddress: meta.ip,
     userAgent: meta.userAgent,
   });
+
+  await notifyGod("New client account created", [
+    `<b>${parsed.displayName}</b> (${parsed.email})`,
+    `IP: ${meta.ip ?? "—"}`,
+  ]);
 
   await signIn("credentials", {
     email: parsed.email,

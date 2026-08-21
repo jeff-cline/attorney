@@ -3,13 +3,16 @@ import Link from "next/link";
 import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { cases, users, disputeStatements } from "@/db/schema";
+import { cases, users, disputeStatements, caseMessages } from "@/db/schema";
 import {
   payShare, agreeToArbitration, submitDispute, approveSummary,
   respondToDecision, respondToArbitration,
 } from "@/actions/cases";
+import { payArbitrationFee, postCaseMessage } from "@/actions/arbitrator";
 import { StatusChip } from "@/components/status-chip";
 import { CopyCode } from "@/components/copy-code";
+
+const usd = (n: number) => `$${n.toLocaleString("en-US")}`;
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +51,10 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
   const mySummaryOk = isInitiator ? c.initiatorSummaryOkAt : c.joinerSummaryOkAt;
   const myDecision = isInitiator ? c.initiatorDecision : c.joinerDecision;
   const myArbOk = isInitiator ? c.initiatorArbOkAt : c.joinerArbOkAt;
+  const arbitrator = c.arbitratorId ? await db.query.users.findFirst({ where: eq(users.id, c.arbitratorId) }) : null;
+  const messages = c.status === "arbitration" ? await db.select().from(caseMessages).where(eq(caseMessages.caseId, c.id)).orderBy(caseMessages.createdAt) : [];
+  const myArbFeePaid = isInitiator ? c.initiatorArbFeePaidAt : c.joinerArbFeePaidAt;
+  const feeShare = c.arbitratorFee ? Math.ceil(c.arbitratorFee / 2) : 0;
   const escalated = ["arbitration", "arbitration_ruling", "litigation"].includes(c.status);
   const litigation = c.status === "litigation";
   const stageIdx = STAGE[c.status] ?? 0;
@@ -61,6 +68,8 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
   async function decDisagree() { "use server"; await respondToDecision(id, "disagree"); redirect(`/dashboard/case/${id}`); }
   async function arbAgree() { "use server"; await respondToArbitration(id, "agree"); redirect(`/dashboard/case/${id}`); }
   async function arbDisagree() { "use server"; await respondToArbitration(id, "disagree"); redirect(`/dashboard/case/${id}`); }
+  async function payFee() { "use server"; await payArbitrationFee(id); redirect(`/dashboard/case/${id}`); }
+  async function askQ(fd: FormData) { "use server"; await postCaseMessage(id, String(fd.get("body") ?? "")); redirect(`/dashboard/case/${id}`); }
 
   return (
     <main className="container" style={{ maxWidth: 960, padding: "40px 24px 80px" }}>
@@ -156,7 +165,7 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
               {myStatement ? (
                 <>
                   <div className="rounded-[10px] p-3 text-[14.5px]" style={{ background: "var(--paper-2)" }}>{myStatement.statement}</div>
-                  <Waiting done={false} youText="Your account is in. When both sides have submitted, we&apos;ll prepare a neutral summary." />
+                  <Waiting done={false} youText="Your account is submitted." next="Once the other party submits theirs, we'll generate a neutral summary for you both to review — and email you when it's ready." />
                 </>
               ) : (
                 <form action={submit}>
@@ -187,7 +196,13 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
             <Panel title="Proposed resolution" tone="seal">
               <Prose text={c.aiDecision ?? ""} />
               {myDecision ? (
-                <Waiting done={false} youText={myDecision === "agree" ? "You accepted. Waiting on the other party." : "You declined — this will escalate to arbitration."} />
+                <Waiting
+                  done={false}
+                  youText={myDecision === "agree" ? "You accepted the proposed resolution." : "You declined the proposed resolution."}
+                  next={myDecision === "agree"
+                    ? "If the other party also accepts, the case is resolved. If they decline, it escalates to a professional arbitrator — we'll email you either way."
+                    : "This case will escalate to a professional arbitrator once both responses are in. We'll email you both with next steps and the arbitration fee."}
+                />
               ) : (
                 <div className="mt-4 flex flex-wrap gap-3">
                   <form action={decAgree}><button className="btn btn-seal">I accept this resolution</button></form>
@@ -197,10 +212,41 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
             </Panel>
           )}
 
-          {/* 8. escalated — waiting on arbitrator */}
+          {/* 8. escalated — arbitrator assigned: pay + Q&A */}
           {c.status === "arbitration" && (
-            <Panel title="Escalated to a professional arbitrator" tone="escalate">
-              <p className="muted text-[15px]">One or both parties declined the proposed resolution. An independent arbitrator will review both accounts and issue a ruling. The arbitration fee is capped at <b>$1,500</b>.</p>
+            <Panel title="Professional arbitration" tone="escalate">
+              {arbitrator ? (
+                <>
+                  <p className="muted text-[15px]">Your case is with <b>{arbitrator.displayName ?? "an independent arbitrator"}</b>, who will review both accounts and issue a ruling.</p>
+                  {c.arbitratorFee ? (
+                    <div className="mt-3 flex items-center justify-between rounded-[10px] px-4 py-3" style={{ background: "var(--paper-2)" }}>
+                      <span className="text-[14.5px] font-semibold">Your share of the arbitration fee</span>
+                      <span className="text-[14.5px]"><b>{usd(feeShare)}</b> <span className="muted">— free during early access</span></span>
+                    </div>
+                  ) : null}
+                  {myArbFeePaid ? (
+                    <Waiting done={false} youText="You paid your share of the arbitration fee." next="Once both sides have paid, the arbitrator issues a ruling. We'll email you when it's ready." />
+                  ) : (
+                    <form action={payFee}><button className="btn btn-seal btn-block mt-3">Pay my share &amp; continue</button></form>
+                  )}
+
+                  <div className="mt-5">
+                    <div className="eyebrow mb-2">Questions from the arbitrator</div>
+                    <div className="space-y-2">
+                      {messages.map((m) => (
+                        <div key={m.id} className="rounded-[10px] px-3 py-2 text-[14px]" style={{ background: m.authorRole === "arbitrator" ? "var(--brand-100)" : "#fff", border: m.authorRole === "party" ? "1px solid var(--line)" : "none" }}>
+                          <span className="text-[12px] font-semibold">{m.authorRole === "arbitrator" ? "Arbitrator" : "A party"}</span>
+                          <div className="mt-0.5 whitespace-pre-wrap">{m.body}</div>
+                        </div>
+                      ))}
+                      {messages.length === 0 && <p className="muted text-[13px]">No questions yet. If the arbitrator needs clarification, it will appear here and we&apos;ll email you.</p>}
+                    </div>
+                    <form action={askQ} className="mt-2"><div className="field"><textarea name="body" placeholder="Reply to the arbitrator…" style={{ minHeight: 70 }} /></div><button className="btn btn-outline">Send reply</button></form>
+                  </div>
+                </>
+              ) : (
+                <p className="muted text-[15px]">One or both parties declined the proposed resolution. An independent arbitrator is being assigned to review both accounts and issue a ruling. We&apos;ll email you when they&apos;re ready and what your share of the fee is.</p>
+              )}
             </Panel>
           )}
 
@@ -264,10 +310,15 @@ function Money() {
     </div>
   );
 }
-function Waiting({ done, youText }: { done: boolean; youText: string }) {
+function Waiting({ done, youText, next }: { done: boolean; youText: string; next?: string }) {
   return (
-    <div className="mt-3 rounded-[10px] px-4 py-3 text-[14.5px]" style={{ background: "var(--brand-100)", color: "var(--brand-700)" }}>
-      {youText} {done ? "Both parties are done — advancing." : ""}
+    <div className="mt-3 rounded-[10px] px-4 py-3 text-[14.5px]" style={{ background: done ? "var(--brand-100)" : "#f4efe2", color: "var(--ink)" }}>
+      <div className="font-semibold">✓ {youText}</div>
+      <div className="muted mt-1">
+        {done
+          ? "Both parties are done — advancing to the next step."
+          : (next ?? "Waiting for the other party. There's nothing more for you to do right now — we'll email you the moment the case moves forward, and you can check back here anytime.")}
+      </div>
     </div>
   );
 }

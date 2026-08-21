@@ -2,13 +2,15 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { cases, agreements, users, disputeStatements } from "@/db/schema";
+import { cases, agreements, users, disputeStatements, arbitratorProfiles } from "@/db/schema";
 import { arbitratorRule } from "@/actions/cases";
+import { assignArbitrator } from "@/actions/arbitrator";
 import { StatusChip } from "@/components/status-chip";
 
 export const dynamic = "force-dynamic";
 
 const fmt = (d: Date | null | undefined) => (d ? d.toISOString().slice(0, 16).replace("T", " ") + " UTC" : "—");
+const usd = (n: number) => `$${n.toLocaleString("en-US")}`;
 
 export default async function AdminCaseDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -20,10 +22,23 @@ export default async function AdminCaseDetail({ params }: { params: Promise<{ id
   const statements = await db.select().from(disputeStatements).where(eq(disputeStatements.caseId, id));
   const nameFor = (uid: string) => (uid === c.initiatorId ? initiator : joiner)?.email ?? uid;
 
+  const arbitrators = await db
+    .select({ id: users.id, name: users.displayName, national: arbitratorProfiles.national, states: arbitratorProfiles.states, fee: arbitratorProfiles.feePerCase, cut: arbitratorProfiles.systemCutPct, active: arbitratorProfiles.active })
+    .from(arbitratorProfiles).innerJoin(users, eq(users.id, arbitratorProfiles.userId));
+  const activeArbs = arbitrators.filter((a) => a.active);
+  const assignedArb = c.arbitratorId ? arbitrators.find((a) => a.id === c.arbitratorId) : undefined;
+  const cut = assignedArb?.cut ?? 30;
+  const fee = c.arbitratorFee ?? 0;
+
   async function rule(fd: FormData) {
     "use server";
     const ruling = String(fd.get("ruling") ?? "").trim();
     if (ruling.length >= 10) await arbitratorRule(id, ruling);
+    redirect(`/admin/cases/${id}`);
+  }
+  async function assign(fd: FormData) {
+    "use server";
+    await assignArbitrator(fd);
     redirect(`/admin/cases/${id}`);
   }
 
@@ -65,18 +80,41 @@ export default async function AdminCaseDetail({ params }: { params: Promise<{ id
           footer={`Initiator: ${c.initiatorDecision ?? "—"} · Joiner: ${c.joinerDecision ?? "—"}`} />
       )}
 
-      {/* arbitrator ruling UI */}
+      {/* professional arbitration — assign + ruling */}
       {c.status === "arbitration" && (
         <section className="panel" style={{ borderTop: "3px solid var(--escalate)" }}>
-          <h2 className="mb-2 text-[20px]">Issue the arbitrator&apos;s ruling</h2>
-          <p className="muted mb-4 text-[14.5px]">This case escalated because a party declined the proposed resolution. Review both accounts above and enter an independent ruling. Both parties will be asked to accept it; if either declines, the case moves to attorneys. Arbitration fee is capped at $1,500.</p>
-          <form action={rule}>
-            <div className="field">
-              <label>Ruling</label>
-              <textarea name="ruling" required minLength={10} placeholder="State the ruling and the reasoning both parties will see…" style={{ minHeight: 160 }} />
-            </div>
-            <button className="btn btn-ink">Issue ruling</button>
-          </form>
+          <h2 className="mb-2 text-[20px]">Professional arbitration</h2>
+          {assignedArb ? (
+            <>
+              <p className="text-[14.5px]">Assigned to <b>{assignedArb.name}</b>. Fee <b>{usd(fee)}</b> — platform keeps {cut}% ({usd(Math.round(fee * cut / 100))}), arbitrator gets {100 - cut}% (<span style={{ color: "var(--seal)" }}>{usd(Math.round(fee * (100 - cut) / 100))}</span>).</p>
+              <p className="muted mt-1 text-[13px]">Fee paid — initiator: {fmt(c.initiatorArbFeePaidAt)} · joiner: {fmt(c.joinerArbFeePaidAt)}</p>
+              <p className="muted mt-3 text-[13px]">The assigned arbitrator issues the ruling from their portal. As God you can also rule here:</p>
+              <form action={rule} className="mt-2">
+                <div className="field"><label>Ruling (God override)</label><textarea name="ruling" required minLength={10} placeholder="State the ruling and reasoning…" style={{ minHeight: 140 }} /></div>
+                <button className="btn btn-ink">Issue ruling</button>
+              </form>
+            </>
+          ) : (
+            <>
+              <p className="muted mb-3 text-[14.5px]">A party declined the proposed resolution. Assign an arbitrator; both parties then pay their part of the fee and the arbitrator issues a ruling.</p>
+              {activeArbs.length === 0 ? (
+                <p className="text-[14px]">No active arbitrators — <Link href="/admin/arbitrators" className="underline" style={{ color: "var(--brand)" }}>create one first</Link>.</p>
+              ) : (
+                <form action={assign} className="flex flex-wrap items-end gap-2">
+                  <input type="hidden" name="caseId" value={id} />
+                  <label className="field" style={{ marginBottom: 0, minWidth: 240 }}>
+                    <span className="text-[12px] muted">Arbitrator</span>
+                    <select name="arbitratorId" required style={{ padding: "10px 12px", borderRadius: 10 }}>
+                      <option value="" disabled>Choose…</option>
+                      {activeArbs.map((a) => <option key={a.id} value={a.id}>{a.name} — {a.national ? "National" : (a.states?.join(", ") || "no states")} · {usd(a.fee)}</option>)}
+                    </select>
+                  </label>
+                  <label className="field" style={{ marginBottom: 0, width: 120 }}><span className="text-[12px] muted">Fee ($)</span><input name="fee" type="number" min={0} step={50} defaultValue={activeArbs[0]?.fee ?? 1500} /></label>
+                  <button className="btn btn-ink">Assign arbitrator</button>
+                </form>
+              )}
+            </>
+          )}
         </section>
       )}
       {c.arbitratorRuling && (
