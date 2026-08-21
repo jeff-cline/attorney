@@ -81,6 +81,8 @@ export async function aiResolve(subject: string | null, parties: PartyStatement[
         const raw = j.choices?.[0]?.message?.content;
         if (raw) {
           const p = JSON.parse(raw) as { decidable?: boolean; resolution?: string; citations?: unknown };
+          // Only a genuine model verdict of decidable=false escalates. A successful,
+          // decidable response returns the cited resolution.
           return {
             decidable: Boolean(p.decidable),
             resolution: String(p.resolution ?? "").slice(0, 6000),
@@ -89,10 +91,12 @@ export async function aiResolve(subject: string | null, parties: PartyStatement[
         }
       }
     } catch {
-      /* fall through */
+      /* fall through to graceful fallback */
     }
-    // Provider configured but the call failed → be safe and route to a human.
-    return { decidable: false, resolution: "", citations: [] };
+    // Provider configured but the call FAILED (quota, outage, bad response). Do NOT
+    // force paid arbitration on an infrastructure error — fall back to the neutral
+    // non-citing decision so the flow continues; God is notified separately.
+    return { decidable: true, resolution: proposedResolution(subject, parties), citations: [] };
   }
   // No AI provider configured → deterministic stub.
   return { decidable: true, resolution: proposedResolution(subject, parties), citations: [] };
