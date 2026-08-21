@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCategory, getGroup, categoriesInGroup, isArbitrable, an } from "@/content/referral-categories";
+import { arbitrationTopicForGroup } from "@/content/arbitration-topics";
 import { VARIANT, copyFor, twin, type Variant } from "@/content/silo-copy";
 import { SiloHero } from "@/components/silo-hero";
 import { DualCTA } from "@/components/dual-cta";
@@ -21,6 +22,7 @@ export async function CategorySilo({ slug, variant }: { slug: string; variant: V
   const intros = intro(c);
   const questions = faqs(c);
   const siblings = categoriesInGroup(c.groupSlug).filter((x) => x.slug !== c.slug).slice(0, 6);
+  const arbTopic = arbitrationTopicForGroup(c.groupSlug);
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -97,6 +99,15 @@ export async function CategorySilo({ slug, variant }: { slug: string; variant: V
                   <Link key={s.slug} href={`${v.path}/${s.slug}`} className="btn btn-outline">{s.name} →</Link>
                 ))}
               </div>
+            </section>
+          )}
+
+          {arbTopic && (
+            <section className="mt-10">
+              <div className="eyebrow">Before you hire</div>
+              <p className="text-[15px]" style={{ maxWidth: 640, lineHeight: 1.6 }}>
+                Many {c.name.toLowerCase()} disputes can be resolved through arbitration instead of court. Learn <Link href={`/arbitration/${arbTopic.slug}`} className="underline" style={{ color: "var(--brand)" }}>{arbTopic.name.toLowerCase()}</Link>, or read the full <Link href="/arbitration" className="underline" style={{ color: "var(--brand)" }}>arbitration guide</Link> — then try Quick-Resolve first.
+              </p>
             </section>
           )}
 

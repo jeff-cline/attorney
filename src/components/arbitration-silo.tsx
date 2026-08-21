@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getArbitrationTopic } from "@/content/arbitration-topics";
+import { getArbitrationTopic, relatedCategorySlugs } from "@/content/arbitration-topics";
+import { getCategory } from "@/content/referral-categories";
 import { SiloHero } from "@/components/silo-hero";
 import { DualCTA } from "@/components/dual-cta";
 
@@ -12,6 +13,7 @@ export async function ArbitrationSilo({ slug }: { slug: string }) {
   const t = getArbitrationTopic(slug);
   if (!t) notFound();
   const siblings = t.related.map(getArbitrationTopic).filter(Boolean) as NonNullable<ReturnType<typeof getArbitrationTopic>>[];
+  const relatedCats = relatedCategorySlugs(slug).map(getCategory).filter(Boolean) as NonNullable<ReturnType<typeof getCategory>>[];
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -79,6 +81,20 @@ export async function ArbitrationSilo({ slug }: { slug: string }) {
               <div className="mt-3 flex flex-wrap gap-2.5">
                 {siblings.map((s) => (
                   <Link key={s.slug} href={`/arbitration/${s.slug}`} className="btn btn-outline">{s.name} →</Link>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {relatedCats.length > 0 && (
+            <section className="mt-10">
+              <div className="eyebrow">Find a lawyer for a related matter</div>
+              <div className="mt-3 flex flex-wrap gap-2.5">
+                {relatedCats.map((c) => (
+                  <Link key={c.slug} href={`/lawyers/${c.slug}`} className="btn btn-outline">{c.name} lawyer →</Link>
+                ))}
+                {relatedCats.map((c) => (
+                  <Link key={`a-${c.slug}`} href={`/attorneys/${c.slug}`} className="btn btn-outline">{c.name} attorney →</Link>
                 ))}
               </div>
             </section>

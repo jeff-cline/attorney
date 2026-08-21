@@ -385,3 +385,49 @@ export function getArbitrationTopic(slug: string): ArbitrationTopic | undefined 
 export function arbitrationTopicsInSection(section: string): ArbitrationTopic[] {
   return ARBITRATION_TOPICS.filter((t) => t.section === section);
 }
+
+/* ── cross-silo internal linking ──────────────────────────────────── */
+/** Practice-area group (referral-categories) → the most relevant arbitration topic. */
+const GROUP_TO_ARBITRATION: Record<string, string> = {
+  "motor-vehicle": "insurance-arbitration",
+  "catastrophic-injury": "insurance-arbitration",
+  "medical-malpractice": "what-is-arbitration",
+  "product-mass-tort": "consumer-arbitration",
+  "workplace-industrial": "employment-arbitration",
+  "premises-injury": "insurance-arbitration",
+  "civil-rights": "what-is-arbitration",
+  insurance: "insurance-arbitration",
+  "consumer-class": "consumer-arbitration",
+  "whistleblower-securities": "finra-securities-arbitration",
+  employment: "employment-arbitration",
+  "criminal-defense": "arbitration-vs-mediation",
+  "family-law": "divorce-family-arbitration",
+  immigration: "what-is-arbitration",
+  "bankruptcy-tax": "what-is-arbitration",
+  "estate-elder": "arbitration-agreement",
+  "real-estate": "construction-arbitration",
+  "business-corporate": "arbitration-agreement",
+  "intellectual-property": "international-arbitration",
+};
+
+export function arbitrationTopicForGroup(groupSlug: string): ArbitrationTopic | undefined {
+  const slug = GROUP_TO_ARBITRATION[groupSlug];
+  return slug ? getArbitrationTopic(slug) : undefined;
+}
+
+/** Arbitration topic → related practice-area category slugs (for the reverse link). */
+const TOPIC_TO_CATEGORIES: Record<string, string[]> = {
+  "employment-arbitration": ["wrongful-termination", "employment-discrimination", "wage-and-hour"],
+  "finra-securities-arbitration": ["securities-fraud-plaintiff", "investment-fraud"],
+  "divorce-family-arbitration": ["contested-divorce", "child-custody"],
+  "construction-arbitration": ["construction-litigation", "construction-accident"],
+  "insurance-arbitration": ["auto-accident", "property-insurance-claim"],
+  "consumer-arbitration": ["consumer-fraud", "class-action-plaintiff"],
+  "international-arbitration": ["business-litigation", "contract-dispute"],
+  "arbitration-agreement": ["contract-dispute", "business-litigation"],
+  "arbitration-lawyer": ["contract-dispute", "business-litigation"],
+};
+
+export function relatedCategorySlugs(topicSlug: string): string[] {
+  return TOPIC_TO_CATEGORIES[topicSlug] ?? [];
+}
