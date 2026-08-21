@@ -12,7 +12,8 @@ import { captureRequestMeta } from "@/lib/ip";
 import { currentTos } from "@/lib/tos";
 import { sendTemplated } from "@/lib/email";
 import { neutralSummary, aiResolve, type PartyStatement } from "@/lib/ai";
-import { notifyGod } from "@/lib/notify";
+import { notifyGod, notifyAttorney } from "@/lib/notify";
+import { awardCoins, attorneyIdForRefCode, COINS_REFERRAL_SIGNUP, COINS_REFERRAL_PAID } from "@/lib/coins";
 import { env } from "@/lib/env";
 
 const ARBITRATION_TEXT =
@@ -68,20 +69,34 @@ async function getCase(caseId: string): Promise<CaseRow> {
 }
 
 /* ── 1. Start ─────────────────────────────────────────────────────── */
-export async function createCase(subject?: string, category?: string, jurisdiction?: string) {
+export async function createCase(subject?: string, category?: string, jurisdiction?: string, refCode?: string) {
   const userId = await currentUserId();
+  // Resolve the referring attorney (if this case came in via a referral link).
+  const refAttorneyId = refCode ? await attorneyIdForRefCode(refCode) : null;
+  const referredByAttorneyId = refAttorneyId && refAttorneyId !== userId ? refAttorneyId : null;
   for (let i = 0; i < 6; i++) {
     const code = generateInviteCode();
     try {
       const [c] = await db
         .insert(cases)
-        .values({ inviteCode: code, initiatorId: userId, subject: subject ?? null, category: category ?? null, jurisdiction: jurisdiction ?? null, status: "awaiting_initiator_payment" })
+        .values({ inviteCode: code, initiatorId: userId, subject: subject ?? null, category: category ?? null, jurisdiction: jurisdiction ?? null, referredByAttorneyId, status: "awaiting_initiator_payment" })
         .returning();
       await notifyGod("New case started", [
         `Code: <b>${c.inviteCode}</b>`,
         `Subject: ${c.subject || "—"}`,
         category ? `Category: ${category}` : "",
+        referredByAttorneyId ? `Referred by an attorney (referral credited)` : "",
       ].filter(Boolean));
+      // A+COIN reward: attorney earns coins for a referral that starts a case.
+      if (referredByAttorneyId) {
+        await awardCoins(referredByAttorneyId, COINS_REFERRAL_SIGNUP, "referral_signup", c.id, `Referral started case ${c.inviteCode}`);
+        const att = await db.query.users.findFirst({ where: eq(users.id, referredByAttorneyId), columns: { email: true } });
+        if (att?.email) await notifyAttorney(att.email, `You earned ${COINS_REFERRAL_SIGNUP} A+COINS`, [
+          `Someone started a case through your referral link.`,
+          `<b>+${COINS_REFERRAL_SIGNUP} A+COINS</b> credited (1 coin = $1 toward future leads).`,
+          `You'll earn <b>${COINS_REFERRAL_PAID} more</b> if they pay — and if the case reaches attorneys, it comes back to you free.`,
+        ], { label: "See your A+COIN balance", href: "https://attorney.plus/portal" });
+      }
       return c;
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -101,6 +116,15 @@ export async function payShare(caseId: string) {
   if (isInitiator && !c.initiatorPaidAt) {
     // Initiator pays first → their code becomes active and shareable.
     await db.update(cases).set({ initiatorPaidAt: now, status: "pending_join", updatedAt: now }).where(eq(cases.id, c.id));
+    // A+COIN reward: the referred person actually paid.
+    if (c.referredByAttorneyId) {
+      await awardCoins(c.referredByAttorneyId, COINS_REFERRAL_PAID, "referral_paid", c.id, `Referred party paid on case ${c.inviteCode}`);
+      const att = await db.query.users.findFirst({ where: eq(users.id, c.referredByAttorneyId), columns: { email: true } });
+      if (att?.email) await notifyAttorney(att.email, `You earned ${COINS_REFERRAL_PAID} A+COINS`, [
+        `A case you referred was paid for.`,
+        `<b>+${COINS_REFERRAL_PAID} A+COINS</b> credited (1 coin = $1 toward future leads).`,
+      ], { label: "See your A+COIN balance", href: "https://attorney.plus/portal" });
+    }
   } else if (isJoiner && !c.joinerPaidAt) {
     // Respondent pays their half → both move to accepting the terms.
     await db.update(cases).set({ joinerPaidAt: now, status: "pending_agreements", updatedAt: now }).where(eq(cases.id, c.id));
@@ -353,7 +377,18 @@ export async function respondToArbitration(caseId: string, choice: "agree" | "di
     updatedAt: now,
   }).where(eq(cases.id, c.id));
   await nudgeOther(c, userId, bothAgree ? "Resolved — both parties accepted the ruling" : disagree ? "Escalated to attorneys" : "The other party responded to the ruling");
-  if (disagree) await notifyGod("Case escalated to attorneys (litigation)", [`Code: <b>${c.inviteCode}</b>`, `Subject: ${c.subject || "—"}`, `Each side should be matched with independent counsel.`]);
-  else if (bothAgree) await notifyGod("Case resolved by arbitrator ruling", [`Code: <b>${c.inviteCode}</b>`, `Subject: ${c.subject || "—"}`]);
+  if (disagree) {
+    await notifyGod("Case escalated to attorneys (litigation)", [`Code: <b>${c.inviteCode}</b>`, `Subject: ${c.subject || "—"}`, `Each side should be matched with independent counsel.`, c.referredByAttorneyId ? `Referring attorney gets their party's lead FREE (reserved). Other side pays full referral fee.` : ""].filter(Boolean));
+    // Reserved lead: the case a referring attorney sent in has reached counsel.
+    // It comes back to THEM (their referred party's side) at no cost — never shared out.
+    if (c.referredByAttorneyId) {
+      const att = await db.query.users.findFirst({ where: eq(users.id, c.referredByAttorneyId), columns: { email: true } });
+      if (att?.email) await notifyAttorney(att.email, `A case you referred reached attorneys — reserved for you, free`, [
+        `Case <b>${c.inviteCode}</b>${c.subject ? ` — ${c.subject}` : ""} did not resolve in arbitration and now needs counsel.`,
+        `Because you referred it in, <b>your referred party's side is reserved for you at no referral cost</b>. It won't be offered to anyone else.`,
+        `The opposing party's attorney pays their full referral fee as usual.`,
+      ], { label: "Claim your reserved lead", href: "https://attorney.plus/portal" });
+    }
+  } else if (bothAgree) await notifyGod("Case resolved by arbitrator ruling", [`Code: <b>${c.inviteCode}</b>`, `Subject: ${c.subject || "—"}`]);
   return getCase(caseId);
 }

@@ -7,18 +7,20 @@ import { getCategory } from "@/content/referral-categories";
 
 export const dynamic = "force-dynamic";
 
-export default async function StartPage({ searchParams }: { searchParams: Promise<{ error?: string; category?: string; intent?: string }> }) {
+export default async function StartPage({ searchParams }: { searchParams: Promise<{ error?: string; category?: string; intent?: string; ref?: string }> }) {
   const sp = await searchParams;
   const session = await auth();
   const loggedIn = Boolean(session?.user);
   const cat = sp.category ? getCategory(sp.category) : undefined;
-  const catQs = cat ? `?category=${encodeURIComponent(cat.slug)}${sp.intent ? `&intent=${encodeURIComponent(sp.intent)}` : ""}` : "";
+  const ref = sp.ref ? sp.ref.trim().slice(0, 16) : "";
 
   async function signupAction(fd: FormData) {
     "use server";
     const r = await signupAndAcceptTos(fd);
     const carry = String(fd.get("category") ?? "");
-    const q = carry ? `?category=${encodeURIComponent(carry)}` : "";
+    const carryRef = String(fd.get("ref") ?? "");
+    const parts = [carry ? `category=${encodeURIComponent(carry)}` : "", carryRef ? `ref=${encodeURIComponent(carryRef)}` : ""].filter(Boolean);
+    const q = parts.length ? `?${parts.join("&")}` : "";
     if (!r.ok) redirect(`/start${q}${q ? "&" : "?"}error=${encodeURIComponent(r.error)}`);
     redirect(`/start${q}`);
   }
@@ -27,7 +29,8 @@ export default async function StartPage({ searchParams }: { searchParams: Promis
     const subject = String(fd.get("subject") ?? "").trim().slice(0, 160);
     const category = String(fd.get("category") ?? "").trim().slice(0, 120) || undefined;
     const jurisdiction = String(fd.get("jurisdiction") ?? "").trim().slice(0, 40) || undefined;
-    const c = await createCase(subject || undefined, category, jurisdiction);
+    const refCode = String(fd.get("ref") ?? "").trim().slice(0, 16) || undefined;
+    const c = await createCase(subject || undefined, category, jurisdiction, refCode);
     redirect(`/dashboard/case/${c.id}`);
   }
 
@@ -49,11 +52,17 @@ export default async function StartPage({ searchParams }: { searchParams: Promis
           {sp.intent === "attorney" ? "Attorney match" : "Category"}: {cat.name}
         </div>
       )}
+      {ref && (
+        <div className="chip chip-seal mb-4" style={{ fontSize: 13.5 }}>
+          Referred by an attorney · your case is credited to them
+        </div>
+      )}
 
       <div className="panel">
         {loggedIn ? (
           <form action={startAction}>
             {cat && <input type="hidden" name="category" value={cat.slug} />}
+            {ref && <input type="hidden" name="ref" value={ref} />}
             <div className="field">
               <label>What&apos;s the dispute about?</label>
               <input name="subject" required maxLength={160} placeholder="e.g. Security deposit not returned" defaultValue={cat ? cat.name : undefined} />
@@ -70,6 +79,7 @@ export default async function StartPage({ searchParams }: { searchParams: Promis
           <>
             <form action={signupAction}>
               {cat && <input type="hidden" name="category" value={cat.slug} />}
+              {ref && <input type="hidden" name="ref" value={ref} />}
               <div className="field"><label>Your name</label><input name="displayName" required placeholder="Full name" /></div>
               <div className="field"><label>Email</label><input name="email" type="email" required placeholder="you@email.com" /></div>
               <div className="field"><label>Password</label><input name="password" type="password" required minLength={12} placeholder="At least 12 characters" /></div>

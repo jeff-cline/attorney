@@ -100,6 +100,7 @@ export const cases = pgTable(
     subject: text("subject"), // short description of the dispute
     category: varchar("category", { length: 120 }), // referral-category slug the consumer picked (connects to attorney bidding)
     jurisdiction: varchar("jurisdiction", { length: 40 }), // US state where the dispute arose (for AI to apply the right law)
+    referredByAttorneyId: uuid("referred_by_attorney_id").references(() => users.id, { onDelete: "set null" }), // attorney whose referral link started this case
     initiatorAgreedAt: timestamp("initiator_agreed_at", { withTimezone: true }),
     joinerAgreedAt: timestamp("joiner_agreed_at", { withTimezone: true }),
     // payment gates (stubbed free until Stripe; timestamp = paid/confirmed)
@@ -284,5 +285,23 @@ export const attorneyProfiles = pgTable("attorney_profiles", {
   exclusiveCategory: varchar("exclusive_category", { length: 120 }),
   exclusiveState: varchar("exclusive_state", { length: 2 }),
   premiumSince: timestamp("premium_since", { withTimezone: true }),
+  refCode: varchar("ref_code", { length: 16 }).unique(), // personal referral code -> /start?ref=<code>
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+// A+COIN loyalty ledger. 1 coin = $1 credit toward future lead-referral fees.
+// Positive = earned (referral signup / paid), negative = redeemed.
+// Unique (attorneyId, caseId, reason) prevents double-awarding for the same event.
+export const coinLedger = pgTable(
+  "coin_ledger",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    attorneyId: uuid("attorney_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    delta: integer("delta").notNull(), // coins +/-
+    reason: varchar("reason", { length: 40 }).notNull(), // 'referral_signup' | 'referral_paid' | 'redeemed' | 'adjust'
+    caseId: uuid("case_id").references(() => cases.id, { onDelete: "set null" }),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({ uniqEvent: uniqueIndex("coin_ledger_event_uq").on(t.attorneyId, t.caseId, t.reason) })
+);

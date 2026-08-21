@@ -1,17 +1,20 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { attorneyProfiles } from "@/db/schema";
+import { attorneyProfiles, cases } from "@/db/schema";
 import { CATEGORIES, GROUPS, getCategory } from "@/content/referral-categories";
 import { arbitrationMultiplier, getStripeConfig, paymentsConfigured, PREMIUM_PRICE_MONTHLY } from "@/lib/settings";
 import { createCheckoutSession } from "@/lib/stripe";
 import { updateSpecialties } from "@/actions/attorney";
 import { FeePicker } from "@/components/fee-picker";
+import { CopyLink } from "@/components/copy-link";
+import { ensureRefCode, coinBalance, coinHistory, COINS_REFERRAL_SIGNUP, COINS_REFERRAL_PAID } from "@/lib/coins";
 
 export const dynamic = "force-dynamic";
 const usd = (n: number) => `$${n.toLocaleString("en-US")}`;
+const fmtDate = (d: Date | null | undefined) => (d ? d.toISOString().slice(0, 10) : "—");
 type Result = { ok: boolean; error?: string } | null;
 
 export default async function Portal({ searchParams }: { searchParams: Promise<{ upgraded?: string; premium?: string; canceled?: string }> }) {
@@ -66,6 +69,24 @@ export default async function Portal({ searchParams }: { searchParams: Promise<{
 
   const exCat = profile?.exclusiveCategory ? getCategory(profile.exclusiveCategory) : undefined;
 
+  // A+COIN referral program
+  const refCode = profile ? await ensureRefCode(userId) : "";
+  const origin = process.env.APP_URL || "https://attorney.plus";
+  const refLink = refCode ? `${origin}/start?ref=${refCode}` : "";
+  const coins = await coinBalance(userId);
+  const ledger = await coinHistory(userId, 12);
+  const reservedLeads = await db
+    .select({ id: cases.id, code: cases.inviteCode, subject: cases.subject, at: cases.litigationAt })
+    .from(cases)
+    .where(and(eq(cases.referredByAttorneyId, userId), eq(cases.status, "litigation")))
+    .orderBy(desc(cases.litigationAt));
+  const reasonLabel: Record<string, string> = {
+    referral_signup: `Referral started a case (+${COINS_REFERRAL_SIGNUP})`,
+    referral_paid: `Referred party paid (+${COINS_REFERRAL_PAID})`,
+    redeemed: "Redeemed toward a lead",
+    adjust: "Adjustment",
+  };
+
   return (
     <main className="container" style={{ maxWidth: 1040, padding: "44px 24px 80px" }}>
       <header className="flex flex-wrap items-end justify-between gap-4">
@@ -94,6 +115,71 @@ export default async function Portal({ searchParams }: { searchParams: Promise<{
           <p className="muted mt-2 text-[14px]" style={{ lineHeight: 1.55 }}>Higher-intent, pre-qualified leads that completed the dispute funnel.</p>
         </div>
       </div>
+
+      {/* A+COINS referral program */}
+      <section className="mt-6 grid gap-4 lg:grid-cols-[1fr_320px]">
+        <div className="card">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 style={{ fontSize: 18 }}>Your referral link · earn A+COINS</h2>
+            <span className="chip chip-seal" style={{ fontSize: 11 }}>1 A+COIN = $1 credit</span>
+          </div>
+          <p className="muted mt-2 text-[14px]" style={{ lineHeight: 1.55 }}>
+            Sending a client to arbitration because their case is too small? Share this link. You earn
+            <b> {COINS_REFERRAL_SIGNUP} A+COINS</b> when they start a case and <b>{COINS_REFERRAL_PAID} A+COINS</b> when they pay —
+            spendable as $1-per-coin credit toward your future leads.
+          </p>
+          {refLink ? <CopyLink url={refLink} label="Copy" /> : <p className="muted mt-3 text-[13px]">Your referral code is being set up — refresh in a moment.</p>}
+
+          {/* the path */}
+          <div className="mt-5 rounded-[12px] p-4" style={{ background: "var(--paper-2)", border: "1px solid var(--line)" }}>
+            <div className="eyebrow mb-2">How a referral pays you back</div>
+            <ol className="space-y-2 text-[13.5px]" style={{ lineHeight: 1.5 }}>
+              <li><b>1.</b> You share your link → they start a case &nbsp;<span className="chip chip-seal" style={{ fontSize: 10.5 }}>+{COINS_REFERRAL_SIGNUP}</span></li>
+              <li><b>2.</b> They pay their share &nbsp;<span className="chip chip-seal" style={{ fontSize: 10.5 }}>+{COINS_REFERRAL_PAID}</span></li>
+              <li><b>3.</b> AI proposes a resolution → if both accept, it&apos;s resolved.</li>
+              <li><b>4.</b> If it doesn&apos;t settle, a professional arbitrator rules.</li>
+              <li><b>5.</b> Still unresolved? It goes to attorneys — and <b style={{ color: "var(--seal)" }}>your referred party comes back to you, free</b>. It&apos;s never shared with another attorney. The <i>opposing</i> party&apos;s attorney pays their full referral fee.</li>
+            </ol>
+          </div>
+
+          {reservedLeads.length > 0 && (
+            <div className="mt-4">
+              <div className="eyebrow mb-2" style={{ color: "var(--seal)" }}>Reserved for you — free ({reservedLeads.length})</div>
+              <ul className="space-y-2">
+                {reservedLeads.map((r) => (
+                  <li key={r.id} className="flex items-center justify-between rounded-[10px] px-3 py-2.5 text-[13.5px]" style={{ background: "#fbf7ec", border: "1px solid var(--seal)" }}>
+                    <span><b>{r.code}</b>{r.subject ? ` — ${r.subject}` : ""} <span className="muted">· reached attorneys {fmtDate(r.at)}</span></span>
+                    <span className="chip chip-seal" style={{ fontSize: 10.5 }}>Free lead</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+
+        {/* balance + ledger */}
+        <div className="card" style={{ background: "var(--ink)", color: "#fff", borderColor: "transparent" }}>
+          <div className="eyebrow" style={{ color: "#e0a94b" }}>A+COIN balance</div>
+          <div style={{ fontFamily: "var(--font-fraunces)", fontSize: 46, color: "#e0a94b", lineHeight: 1.05, marginTop: 6 }}>{coins.toLocaleString("en-US")}</div>
+          <div style={{ color: "rgba(255,255,255,.7)", fontSize: 13 }}>= {usd(coins)} credit toward future leads</div>
+          <div className="mt-4" style={{ borderTop: "1px solid rgba(255,255,255,.15)", paddingTop: 12 }}>
+            <div className="text-[11px] uppercase tracking-[.08em]" style={{ color: "rgba(255,255,255,.55)" }}>Recent activity</div>
+            {ledger.length === 0 ? (
+              <p style={{ color: "rgba(255,255,255,.6)", fontSize: 13, marginTop: 8 }}>No coins yet — share your link to start earning.</p>
+            ) : (
+              <ul className="mt-2 space-y-1.5">
+                {ledger.map((l) => (
+                  <li key={l.id} className="flex items-center justify-between text-[12.5px]" style={{ color: "rgba(255,255,255,.85)" }}>
+                    <span>{reasonLabel[l.reason] ?? l.reason}<span style={{ color: "rgba(255,255,255,.45)" }}> · {fmtDate(l.createdAt)}</span></span>
+                    <b style={{ color: l.delta >= 0 ? "#7fd1a8" : "#f0a1a1" }}>{l.delta >= 0 ? "+" : ""}{l.delta}</b>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <p style={{ color: "rgba(255,255,255,.5)", fontSize: 11.5, marginTop: 12 }}>Coins apply automatically as $1-per-coin credit when you&apos;re billed for a lead.</p>
+        </div>
+      </section>
 
       {/* premium partner */}
       <section className="mt-6">
